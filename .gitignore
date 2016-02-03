@@ -1,0 +1,4 @@
+# Generic globs
+*~
+.*.swp
+.*.swo
