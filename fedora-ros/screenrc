@@ -1,0 +1,8 @@
+hardstatus alwayslastline
+altscreen on
+#hardstatus string "%{= ky}%-Lw%{=r}%20>%n %t%{= ky}%+Lw %{= ky}%-=| %{= kw}%M%d %c%{-} %{=r} ${USER}@%H "
+hardstatus string "%{= Wb}%-Lw%{=r}%20>%n %t%{= ky}%+Lw %{= kb}%-=| %{= kw}%M%d %c%{-} %{= bW} ${USER}@%H "
+vbell off
+defscrollback 5000
+startup_message off
+shell /bin/bash
