@@ -1,0 +1,28 @@
+FROM       fedora-ros:23-jade
+MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
+
+# Get and compile Fawkes
+RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
+	cd /opt && \
+	curl -O http://files.fawkesrobotics.org/releases/fawkes-robotino-2015-rc4.tar.bz2 && \
+	tar xf fawkes-robotino-2015-rc4.tar.bz2 && \
+	cd fawkes-robotino && \
+	make -j4 all gui"
+
+# Get and compile Gazebo stuff
+RUN cd /opt && \
+	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
+	cd gazebo-rcll/plugins && \
+	make -j4
+
+# Get and compile RCLL Referee Box
+RUN cd /opt && \
+	git clone https://git.fawkesrobotics.org/llsf-refbox.git && \
+	cd llsf-refbox && \
+	make -j4 all gui
+
+RUN dnf install -y gnome-terminal mesa-dri-drivers && dnf clean all
+
+COPY ./rcll-run-sim.sh /bin/
+ENTRYPOINT ["/bin/rcll-run-sim.sh"]
+
