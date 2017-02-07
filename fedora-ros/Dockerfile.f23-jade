@@ -1,4 +1,4 @@
-FROM       fedora-robotics:23
+FROM       fedora-robotics:f23
 MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
 
 ENV ROS_DISTRO jade
