@@ -1,4 +1,4 @@
-FROM       fedora-ros:f23-jade-navigation
+FROM       timn/fedora-ros:f23-jade-navigation
 MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
 
 RUN /bin/bash -c "source /etc/profile; \

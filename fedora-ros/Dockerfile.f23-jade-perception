@@ -1,4 +1,4 @@
-FROM       fedora-ros:f23-jade-robot
+FROM       timn/fedora-ros:f23-jade-robot
 MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
 
 RUN /bin/bash -c "source /etc/profile; \
