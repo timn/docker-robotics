@@ -4,7 +4,7 @@ MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
 # Get and compile Fawkes
 RUN /bin/bash -c "source /etc/profile && \
 	cd /opt && \
-	curl -O http://files.fawkesrobotics.org/releases/fawkes-robotino-2015.tar.bz2 && \
+	curl -O https://files.fawkesrobotics.org/releases/fawkes-robotino-2015.tar.bz2 && \
 	tar xf fawkes-robotino-2015.tar.bz2 && \
 	cd fawkes-robotino && \
 	make -j4 all gui"
