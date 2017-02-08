@@ -11,7 +11,7 @@ export GAZEBO_MODEL_PATH=$GAZEBO_RCLL/models
 export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:$GAZEBO_RCLL/models/carologistics
 
 export LLSF_REFBOX_DIR=/opt/llsf-refbox
-export GAZEBO_WORLD_PATH=/opt/gazebo-rcll/worlds/carologistics/llsf.world
+export GAZEBO_WORLD_PATH=$GAZEBO_RCLL/worlds/carologistics/llsf.world
 
 mkdir -p /run/dbus
 dbus-daemon --system --fork

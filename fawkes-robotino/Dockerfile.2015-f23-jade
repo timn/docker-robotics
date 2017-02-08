@@ -1,11 +1,11 @@
-FROM       fedora-ros:23-jade
+FROM       timn/fedora-ros:f23-jade-desktop
 MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
 
 # Get and compile Fawkes
-RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
+RUN /bin/bash -c "source /etc/profile && \
 	cd /opt && \
-	curl -O http://files.fawkesrobotics.org/releases/fawkes-robotino-2015-rc4.tar.bz2 && \
-	tar xf fawkes-robotino-2015-rc4.tar.bz2 && \
+	curl -O http://files.fawkesrobotics.org/releases/fawkes-robotino-2015.tar.bz2 && \
+	tar xf fawkes-robotino-2015.tar.bz2 && \
 	cd fawkes-robotino && \
 	make -j4 all gui"
 
