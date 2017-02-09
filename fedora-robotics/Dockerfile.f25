@@ -41,7 +41,7 @@ RUN dnf install -y \
 	rospack rospack-devel python-rosdistro python-rosinstall \
 	python-rosinstall_generator python-wstool python-rosdep python-rosdistro \
   python3-rosinstall_generator python3-rosinstall \
-  python-qt5-devel, python3-qt5-devel, python2-defusedxml \
+  python-qt5-devel python3-qt5-devel python2-defusedxml \
   sip-devel PyQt4-devel \
 	python-netifaces \
 	clips clipsmm-devel clips-emacs \
