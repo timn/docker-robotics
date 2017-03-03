@@ -1,0 +1,54 @@
+FROM       timn/fedora-ros:f25-kinetic-desktop
+MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
+
+# ROS_DISTRO set by fedora-ros layer
+
+RUN dnf install -y gnome-terminal mesa-dri-drivers && dnf clean all
+
+COPY fawkes-pre.rosinstall rcll-sim.rosinstall /opt/ros/
+
+# Get and compile ROS pre bits
+RUN /bin/bash -c "source /etc/profile && \
+  mkdir -p /opt/ros/catkin_ws_${ROS_DISTRO}_fawkes_pre/src; \
+  cd /opt/ros/catkin_ws_${ROS_DISTRO}_fawkes_pre; \
+  wstool init -j $(nproc) src ../fawkes-pre.rosinstall; \
+  rosdep install --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y; \
+  catkin_make_isolated --install --install-space /opt/ros/$ROS_DISTRO \
+    -DCMAKE_BUILD_TYPE=$ROS_BUILD_TYPE || exit $?; \
+  rm -rf *_isolated; \
+  "
+
+# Get and compile Fawkes
+RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
+	cd /opt && \
+	curl -O https://files.fawkesrobotics.org/releases/fawkes-robotino-2016-2.tar.bz2 && \
+	tar xf fawkes-robotino-2016-2.tar.bz2 && \
+	cd fawkes-robotino && \
+	make -j4 all gui"
+
+# Get and compile Gazebo stuff
+RUN cd /opt && \
+	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
+	cd gazebo-rcll/plugins && \
+	make -j4
+
+# Get and compile RCLL Referee Box
+RUN cd /opt && \
+	git clone https://git.fawkesrobotics.org/llsf-refbox.git && \
+	cd llsf-refbox && \
+	make -j4 all gui
+
+# Get and compile ROS RCLL sim bits
+RUN /bin/bash -c "source /etc/profile && \
+  mkdir -p /opt/ros/catkin_ws_${ROS_DISTRO}_rcll_sim/src; \
+  cd /opt/ros/catkin_ws_${ROS_DISTRO}_rcll_sim; \
+  wstool init -j $(nproc) src ../rcll-sim.rosinstall; \
+  rosdep install --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y; \
+  catkin_make_isolated --install --install-space /opt/ros/$ROS_DISTRO \
+    -DCMAKE_BUILD_TYPE=$ROS_BUILD_TYPE || exit $?; \
+  rm -rf *_isolated; \
+  "
+
+COPY ./rcll-run-sim.sh /bin/
+ENTRYPOINT ["/bin/rcll-run-sim.sh"]
+
