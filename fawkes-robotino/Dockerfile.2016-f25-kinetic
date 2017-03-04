@@ -9,7 +9,7 @@ RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
 	curl -O https://files.fawkesrobotics.org/releases/fawkes-robotino-2016-2.tar.bz2 && \
 	tar xf fawkes-robotino-2016-2.tar.bz2 && \
 	cd fawkes-robotino && \
-	make -j4 all gui"
+	make all gui"
 
 # Get and compile ROS RCLL sim bits
 RUN /bin/bash -c "source /etc/profile && \
