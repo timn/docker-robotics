@@ -22,11 +22,11 @@ RUN /bin/bash -c "source /etc/profile && \
 RUN cd /opt && \
 	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
 	cd gazebo-rcll/plugins && \
-	make -j4
+	make CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic"
 
 # Get and compile RCLL Referee Box
 RUN cd /opt && \
 	git clone https://git.fawkesrobotics.org/llsf-refbox.git && \
 	cd llsf-refbox && \
-	make -j4 all gui
+	make all gui
 
