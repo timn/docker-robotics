@@ -18,7 +18,13 @@ dbus-daemon --system --fork
 
 echo "Running simulation"
 cd $FAWKES_DIR/bin
-./gazsim.bash -x start -n 1 -r -a
+./gazsim.bash -x start -n 1 -r -a -t
+
+echo "Starting game"
+$LLSF_REFBOX_DIR/rcll-refbox-instruct -c Carologistics -p PRODUCTION -s RUNNING
 
 echo "Startup complete. Press Enter to shutdown."
 read
+
+./gazsim.bash -x kill
+
