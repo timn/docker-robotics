@@ -1,0 +1,43 @@
+#!/bin/bash
+
+SCRIPT_PATH=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+source $SCRIPT_PATH/setup.bash
+
+ROBOT=$1
+
+if [ -z "$ROBOT" ]; then
+	echo "Usage: $0 <robot>"
+	exit 1
+fi
+
+echo "Running component $COMPONENT"
+
+if [ -e /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
+	KUBERNETES="true"
+	KUBERNETES_CACRT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+	KUBERNETES_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+fi
+
+if [ -n "$KUBERNETES" ]; then
+	echo "Running in Kubernetes, waiting for robot pods (${ROBOTS[*]})"
+	# Wait for the expected robot pods
+	URL="https://kubernetes.default/api/v1/pods?labelSelector=app%3dfawkes,robot+in+%28${ROBOT}%29"
+	echo "*** Getting endpoints ***"
+	echo "URL: $URL"
+	curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL"
+	echo
+	echo "************************************"
+	echo "*** Number of detected endpoints ***"
+	curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL" \
+		| jq -r '.items | map(select(.status.phase=="Running")) | length'
+	echo
+	echo "************************************"
+
+	N=$(curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL" \
+				| jq -r '.items | map(select(.status.phase=="Running")) | length')
+
+	echo "N: $N"
+else
+	echo "Not in Kubernetes"
+fi
+exit 0

@@ -1,0 +1,40 @@
+#!/bin/bash
+
+SCRIPT_PATH=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+source $SCRIPT_PATH/setup.bash
+
+ROBOT=${1}
+
+declare -A INITIAL_POS=([C-R1]=" 3.5 -0.5 0.0  0.0 0.0 0.7 0.7"
+												[C-R2]=" 4.5 -0.5 0.0  0.0 0.0 0.7 0.7"
+												[C-R3]=" 5.5 -0.5 0.0  0.0 0.0 0.7 0.7"
+												[M-R1]="-3.5 -0.5 0.0  0.0 0.0 0.7 0.7"
+												[M-R2]="-4.5 -0.5 0.0  0.0 0.0 0.7 0.7"
+												[M-R3]="-5.5 -0.5 0.0  0.0 0.0 0.7 0.7")
+
+if [ -z "$ROBOT" ]; then
+	2>&1 echo "No robot given to localize"
+	exit 11
+fi
+
+if [ -z "${INITIAL_POS[$ROBOT]:+isset}" ]; then
+	2>&1 echo "Unknown robot $ROBOT, only know about ${!INITIAL_POS[*]}"
+	exit 12
+fi
+
+REMOTE=${REMOTE:-localhost:1910}
+TIMEOUT=${TIMEOUT:-180}
+
+if [ -e /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
+	KUBERNETES="true"
+	KUBERNETES_CACRT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+	KUBERNETES_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+fi
+
+echo "Localizing robot $ROBOT to (${INITIAL_POS[$ROBOT]})"
+
+$FAWKES_DIR/bin/ffset_pose -r $REMOTE -t $TIMEOUT -- ${INITIAL_POS[$ROBOT]}
+
+sleep infinity
+
+exit 0
