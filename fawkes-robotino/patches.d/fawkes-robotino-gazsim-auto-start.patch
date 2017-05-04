@@ -1,0 +1,139 @@
+From 0f1597be6a57bb52c500fba9858b605ad28e789d Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Wed, 1 Mar 2017 14:09:37 +0100
+Subject: [PATCH 1/3] gazsim-scripts: make shm delete quiet
+
+---
+ etc/scripts/gazsim.bash | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/etc/scripts/gazsim.bash b/etc/scripts/gazsim.bash
+index 5caa3c5..4509717 100755
+--- a/etc/scripts/gazsim.bash
++++ b/etc/scripts/gazsim.bash
+@@ -217,7 +217,7 @@ if [  $COMMAND  == start ]; then
+     fi
+ 
+     # delete old shm files. Only do this for the simulation, not on live bot.
+-    rm /dev/shm/*fawkes*
++    rm /dev/shm/*fawkes* 2>&1 >/dev/null
+ 
+     #construct command to open everything in one terminal window with multiple tabs instead of 10.000 windows
+ 
+-- 
+2.9.3
+
+
+From 4ccd2a13ed3ae33d176de163abdca539bd27e380 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Wed, 1 Mar 2017 14:10:49 +0100
+Subject: [PATCH 2/3] gazsim-script: add argument to start simulation
+
+This uses the new rcll-refbox-instruct tool to set the team name(s) and
+game phase and state. It allows for a quick auto-start from the command
+line without going through the configuration of the gazsim-llsf-control
+plugin.
+---
+ etc/scripts/gazsim.bash | 38 +++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 37 insertions(+), 1 deletion(-)
+
+diff --git a/etc/scripts/gazsim.bash b/etc/scripts/gazsim.bash
+index 4509717..b1875d7 100755
+--- a/etc/scripts/gazsim.bash
++++ b/etc/scripts/gazsim.bash
+@@ -35,6 +35,14 @@ OPTIONS:
+    -g                Run Fawkes in gdb
+    -v                Run Fawkes in valgrind
+    -t                Skip Exploration and add all navgraph points
++   --team-cyan       Set cyan team name
++   --team-magenta		 Set magenta team name
++   --start-game      Automatically run game after initialization
++                     (if used with -t go into PRODUCTION phase,
++                      otherwise the phase will be EXPLORATION,
++                      optionally, "--start-game=PHASE" may be given
++                      to set the phase explicitly)
++                     Typically requires at least --team-cyan.
+ EOF
+ }
+ 
+@@ -63,8 +71,11 @@ TERM_GEOMETRY=105x56
+ GDB=
+ SKIP_EXPLORATION=
+ FAWKES_USED=false
++START_GAME=
++TEAM_CYAN=
++TEAM_MAGENTA=
+ 
+-OPTS=$(getopt -o "hx:c:lrksn:e:dm:aof:p:gvt" -l "ros,ros-launch-main:,ros-launch:" -- "$@")
++OPTS=$(getopt -o "hx:c:lrksn:e:dm:aof:p:gvt" -l "ros,ros-launch-main:,ros-launch:,start-game::,team-cyan:,team-magenta:" -- "$@")
+ if [ $? != 0 ]
+ then
+     echo "Failed to parse parameters"
+@@ -154,6 +165,23 @@ while true; do
+ 	 --ros-launch-robot)
+ 	     ROS_LAUNCH_ROBOT="--ros-launch $OPTARG"
+ 	     ;;
++	 --team-cyan)
++	     TEAM_CYAN="$OPTARG"
++	     ;;
++	 --team-magenta)
++	     TEAM_MAGENTA="$OPTARG"
++	     ;;
++	 --start-game)
++			 if [ -n "$OPTARG" ]; then
++					 START_GAME="$OPTARG"
++			 else
++					 if [ -n "$SKIP_EXPLORATION" ]; then
++							 START_GAME="PRODUCTION"
++					 else
++							 START_GAME="EXPLORATION"
++					 fi
++			 fi
++	     ;;
+ 	 -f)
+ 	     FIRST_ROBOTINO_NUMBER=$OPTARG
+ 	     ;;
+@@ -288,6 +316,14 @@ if [  $COMMAND  == start ]; then
+ 	echo "Skipped publishing poses"
+     fi
+ 
++		if [ -n "$START_GAME" ]; then
++				if [ ! -x $LLSF_REFBOX_DIR/bin/rcll-refbox-instruct ]; then
++						echo "rcll-refbox-instruct not found, not built or old version?"
++				else
++						echo "Starting game (Phase: $START_GAME ${TEAM_CYAN:+Cyan: ${TEAM_CYAN}}${TEAM_MAGENTA:+ Magenta: ${TEAM_MAGENTA}})"
++						$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct -p $START_GAME -s RUNNING ${TEAM_CYAN:+-c ${TEAM_CYAN}}${TEAM_MAGENTA:+-m ${TEAM_MAGENTA}}
++				fi
++		fi
+ 
+     else
+     usage
+-- 
+2.9.3
+
+
+From 3afb0ab28481c8c422f14dbbb245e6d9845940eb Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Fri, 24 Mar 2017 17:36:57 +0100
+Subject: [PATCH 3/3] gazsim-script: reduce time before localizing
+
+---
+ etc/scripts/gazsim.bash | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/etc/scripts/gazsim.bash b/etc/scripts/gazsim.bash
+index b1875d7..ceeef80 100755
+--- a/etc/scripts/gazsim.bash
++++ b/etc/scripts/gazsim.bash
+@@ -308,7 +308,7 @@ if [  $COMMAND  == start ]; then
+     sleep 10s
+     if $FAWKES_USED
+     then
+-	sleep 15s
++	sleep 5s
+ 	# publish initial poses
+ 	echo "publish initial poses"
+ 	$initial_pose_script_location -c $NUM_CYAN -m $NUM_MAGENTA -d
+-- 
+2.9.3
+

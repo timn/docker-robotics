@@ -16,6 +16,9 @@ RUN /bin/bash -c "source /etc/profile && \
   rm -rf *_isolated; \
   "
 
+RUN mkdir -p /opt/patches.fawkes
+COPY patches.d/* /opt/patches.fawkes/
+
 # Get and compile Fawkes
 # Use generic optimization so that the resulting image works on more platforms.
 # Enable the old 2015 agent, only that has the full model of the production.
@@ -24,6 +27,9 @@ RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
 	curl -O https://files.fawkesrobotics.org/releases/fawkes-robotino-2016-2.tar.bz2 && \
 	tar xf fawkes-robotino-2016-2.tar.bz2 && \
 	cd fawkes-robotino && \
+	for p in /opt/patches.fawkes/fawkes-core-*.patch; do echo PATCH \$p; patch -d fawkes -p1 -N <\$p; done && \
+	for p in /opt/patches.fawkes/fawkes-robotino-*.patch; do echo PATCH \$p; patch -p1 -N <\$p; done && \
+	sed -i -e 's/\(agent: rcll2016\/rcll2016\)/# \1/;s/# \(agent: llsf2015\/llsf2015\)/\1/' cfg/conf.d/clips-agent.yaml && \
 	sed -i -e 's/CFLAGS_EXTRA  += -g/CFLAGS_EXTRA += -m64 -mtune=generic -g/g' etc/buildsys/config.mk && \
 	make -j$(nproc) all gui VERBOSE=1 CFLAGS_MTUNE_NATIVE= &&\
 	find . -name '.objs_*' -prune -exec rm -rf {} \; &&\

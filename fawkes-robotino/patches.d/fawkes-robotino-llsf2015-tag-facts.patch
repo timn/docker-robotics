@@ -1,0 +1,38 @@
+From 953fae00dc79d1a85a0720b90557fbca516e42c4 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Mon, 27 Mar 2017 10:27:00 +0200
+Subject: [PATCH] rcll2015: add missing found-tag assertion for ground-truth
+
+One rule was missing that prevented found-tag facts to be asserted when
+generating the navgraph from simulation ground truth. This caused robots
+no to pick up any jobs but go to and idle at the wait position.
+---
+ src/agents/llsf2015/navgraph.clp | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/src/agents/llsf2015/navgraph.clp b/src/agents/llsf2015/navgraph.clp
+index 28c8a93..2ca417a 100644
+--- a/src/agents/llsf2015/navgraph.clp
++++ b/src/agents/llsf2015/navgraph.clp
+@@ -121,4 +121,16 @@
+                      machine ?mps)
+     )
+   )
+-)
+\ No newline at end of file
++)
++
++(defrule navgraph-sim-add-found-tags-when-added-by-ground-truth
++  "When the gazsim-navgraph-generator plugin is used to add the navgraph points to test production without exploration, we have to add the found-tags"
++  (phase PRODUCTION)
++  (not (sim-was-in-exploration))
++  (machine (name ?mps))
++  (not (found-tag (name ?mps)))
++  (navgraph-node (name ?mps-o-str&:(eq ?mps-o-str (str-cat ?mps "-O"))))
++  =>
++  (assert (found-tag (name ?mps) (side OUTPUT))
++          (navgraph-added-for-mps (name ?mps)))
++)
+-- 
+2.9.3
+

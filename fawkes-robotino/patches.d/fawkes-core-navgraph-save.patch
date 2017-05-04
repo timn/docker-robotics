@@ -1,0 +1,674 @@
+From 56b77bab0bc999d5d2934e1cd5afe3c1a2a73465 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Wed, 1 Mar 2017 23:23:56 +0100
+Subject: [PATCH 1/8] navgraph-generator: support automated saving of generated
+ navgraphs
+
+---
+ .../navgraph_generator_thread.cpp                  | 25 +++++++++++++++++++++-
+ .../navgraph-generator/navgraph_generator_thread.h |  3 +++
+ 2 files changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugins/navgraph-generator/navgraph_generator_thread.cpp b/src/plugins/navgraph-generator/navgraph_generator_thread.cpp
+index 8e675b7..5de0603 100644
+--- a/src/plugins/navgraph-generator/navgraph_generator_thread.cpp
++++ b/src/plugins/navgraph-generator/navgraph_generator_thread.cpp
+@@ -2,7 +2,7 @@
+  *  navgraph_generator_thread.cpp - Plugin to generate navgraphs
+  *
+  *  Created: Mon Feb 09 17:37:30 2015
+- *  Copyright  2015  Tim Niemueller [www.niemueller.de]
++ *  Copyright  2015-2017  Tim Niemueller [www.niemueller.de]
+  ****************************************************************************/
+ 
+ /*  This program is free software; you can redistribute it and/or modify
+@@ -25,6 +25,7 @@
+ 
+ #include <core/threading/mutex_locker.h>
+ #include <navgraph/generators/voronoi.h>
++#include <navgraph/yaml_navgraph.h>
+ #include <plugins/laser-lines/line_func.h>
+ #include <plugins/amcl/amcl_utils.h>
+ #include <utils/misc/string_split.h>
+@@ -101,6 +102,23 @@ NavGraphGeneratorThread::init()
+     cfg_visualization_ = config->get_bool(CFG_PREFIX"visualization/enable");
+   } catch (Exception &e) {} // ignore, use default
+ 
++  cfg_save_to_file_ = false;
++  try {
++    cfg_save_to_file_ = config->get_bool(CFG_PREFIX"save-to-file/enable");
++  } catch (Exception &e) {} // ignore, use default
++  if (cfg_save_to_file_) {
++	  cfg_save_filename_ = config->get_string(CFG_PREFIX"save-to-file/filename");
++	  if (cfg_save_filename_.empty()) {
++		  throw Exception("navgraph-generator: invalid empty filename");
++	  }
++	  if (cfg_save_filename_.find("..") != std::string::npos) {
++		  throw Exception("navgraph-generator: filename may not contains two consecutive dots (..)");
++	  }
++	  if (cfg_save_filename_[0] != '/') {
++		  cfg_save_filename_ = std::string(CONFDIR) + "/" + cfg_save_filename_;
++	  }
++  }
++
+ #ifndef HAVE_VISUALIZATION
+   if (cfg_visualization_) {
+     logger->log_warn(name(), "Visualization enabled, but support not compiled in");
+@@ -279,6 +297,11 @@ NavGraphGeneratorThread::loop()
+ 	  logger->log_error(name(), e);
+   }
+ 
++  if (cfg_save_to_file_) {
++	  logger->log_debug(name(), "  Writing to file '%s'", cfg_save_filename_.c_str());
++	  save_yaml_navgraph(cfg_save_filename_, *navgraph);
++  }
++
+   // re-enable notifications
+   navgraph->set_notifications_enabled(true);
+ 
+diff --git a/src/plugins/navgraph-generator/navgraph_generator_thread.h b/src/plugins/navgraph-generator/navgraph_generator_thread.h
+index f7dd10a..115f821 100644
+--- a/src/plugins/navgraph-generator/navgraph_generator_thread.h
++++ b/src/plugins/navgraph-generator/navgraph_generator_thread.h
+@@ -101,6 +101,9 @@ class NavGraphGeneratorThread
+   float        cfg_map_line_cluster_quota_;
+   bool         cfg_visualization_;
+ 
++  bool         cfg_save_to_file_;
++  std::string  cfg_save_filename_;
++
+   fawkes::NavGraphGeneratorInterface *navgen_if_;
+ 
+   PoiMap      pois_;
+-- 
+2.9.3
+
+
+From c6603d3025ec7f5099fe668d2b453b6940a2d719 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Wed, 1 Mar 2017 23:24:36 +0100
+Subject: [PATCH 2/8] config: add config for navgraph-generator saving,
+ disabled by default
+
+---
+ cfg/conf.d/navgraph-generator.yaml | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/cfg/conf.d/navgraph-generator.yaml b/cfg/conf.d/navgraph-generator.yaml
+index e31ce47..359ce40 100644
+--- a/cfg/conf.d/navgraph-generator.yaml
++++ b/cfg/conf.d/navgraph-generator.yaml
+@@ -1,7 +1,7 @@
+ %YAML 1.2
+ %TAG ! tag:fawkesrobotics.org,cfg/
+ ---
+-doc-url: !url http://trac.fawkesrobotics.org/wiki/Plugins/laser-cluster
++doc-url: !url http://trac.fawkesrobotics.org/wiki/Plugins/navgraph-generator
+ ---
+ navgraph-generator:
+ 
+@@ -49,3 +49,14 @@ navgraph-generator:
+   visualization:
+     enable: true
+ 
++
++  # Save a generated navgraph automatically to disk.
++  
++  # This can be enabled, e.g., for later debugging or during automated
++  # experiments.
++  save-to-file:
++    enable: false
++    # Filename, if starting with a slash (/), absolute path is assumed,
++    # otherwise, it is assumed to be relative to the config directory.
++    # Path may not contain two consecutive dots (..).
++    filename: navgraph-generated.yaml
+-- 
+2.9.3
+
+
+From 0e4cc57a9ddf298f8713d1450f3fd7b739273215 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Mon, 13 Mar 2017 10:45:58 +0100
+Subject: [PATCH 3/8] libnavgraph: support loading multi-graph files
+
+Add flag to disable strong connectivity check on loading a graph from a
+YAML file. This remains enabled by default.
+---
+ src/libs/navgraph/yaml_navgraph.cpp | 5 +++--
+ src/libs/navgraph/yaml_navgraph.h   | 2 +-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/src/libs/navgraph/yaml_navgraph.cpp b/src/libs/navgraph/yaml_navgraph.cpp
+index 145f804..0833b9d 100644
+--- a/src/libs/navgraph/yaml_navgraph.cpp
++++ b/src/libs/navgraph/yaml_navgraph.cpp
+@@ -285,11 +285,12 @@ read_default_properties(NavGraph *graph, YAML::Node &doc)
+ 
+ /** Load topological map graph stored in RCSoft format.
+  * @param filename path to the file to read
++ * @param allow_multi_graph if true, allows multiple disconnected graph segments
+  * @return topological map graph read from file
+  * @exception Exception thrown on any error to read the graph file
+  */
+ NavGraph *
+-load_yaml_navgraph(std::string filename)
++load_yaml_navgraph(std::string filename, bool allow_multi_graph)
+ {
+   //try to fix use of relative paths
+   if (filename[0] != '/') {
+@@ -351,7 +352,7 @@ load_yaml_navgraph(std::string filename)
+     }
+   }
+ 
+-  graph->calc_reachability();
++  graph->calc_reachability(allow_multi_graph);
+ 
+   const std::vector<NavGraphNode> &nodes = graph->nodes();
+   for (const NavGraphNode &n : nodes) {
+diff --git a/src/libs/navgraph/yaml_navgraph.h b/src/libs/navgraph/yaml_navgraph.h
+index cdd30fb..8427bc3 100644
+--- a/src/libs/navgraph/yaml_navgraph.h
++++ b/src/libs/navgraph/yaml_navgraph.h
+@@ -32,7 +32,7 @@ namespace fawkes {
+ 
+ class NavGraph;
+ 
+-extern NavGraph *  load_yaml_navgraph(std::string filename);
++extern NavGraph *  load_yaml_navgraph(std::string filename, bool allow_multi_graph = false);
+ extern void        save_yaml_navgraph(std::string filename, NavGraph *graph);
+ 
+ } // end of namespace fawkes
+-- 
+2.9.3
+
+
+From 08c1b4d045df762e9571b07b90e6b6803b2aeb31 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Mon, 13 Mar 2017 10:47:56 +0100
+Subject: [PATCH 4/8] navgraph: support config flag to allow multi-graph
+ loading
+
+---
+ src/plugins/navgraph/navgraph_thread.cpp | 8 +++++++-
+ src/plugins/navgraph/navgraph_thread.h   | 1 +
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugins/navgraph/navgraph_thread.cpp b/src/plugins/navgraph/navgraph_thread.cpp
+index 50be0d9..1ef0711 100644
+--- a/src/plugins/navgraph/navgraph_thread.cpp
++++ b/src/plugins/navgraph/navgraph_thread.cpp
+@@ -90,6 +90,11 @@ NavGraphThread::init()
+     cfg_monitor_file_ = config->get_bool("/navgraph/monitor_file");
+   } catch (Exception &e) {} // ignored
+ 
++  cfg_allow_multi_graph_ = false;
++  try {
++    cfg_allow_multi_graph_ = config->get_bool("/navgraph/allow_multi_graph");
++  } catch (Exception &e) {} // ignored
++
+   cfg_enable_path_execution_ = true;
+   try {
+     cfg_enable_path_execution_ = config->get_bool("/navgraph/path_execution");
+@@ -428,7 +433,8 @@ NavGraphThread::load_graph(std::string filename)
+ 
+   if (firstword == "%YAML") {
+     logger->log_info(name(), "Loading YAML graph from %s", filename.c_str());
+-    return fawkes::LockPtr<NavGraph>(load_yaml_navgraph(filename), /* recursive mutex */ true);
++    return fawkes::LockPtr<NavGraph>(load_yaml_navgraph(filename, cfg_allow_multi_graph_),
++                                     /* recursive mutex */ true);
+   } else {
+     throw Exception("Unknown graph format");
+   }
+diff --git a/src/plugins/navgraph/navgraph_thread.h b/src/plugins/navgraph/navgraph_thread.h
+index 06dc3f3..6781050 100644
+--- a/src/plugins/navgraph/navgraph_thread.h
++++ b/src/plugins/navgraph/navgraph_thread.h
+@@ -113,6 +113,7 @@ class NavGraphThread
+   bool         cfg_log_graph_;
+   bool         cfg_abort_on_error_;
+   bool         cfg_enable_path_execution_;
++  bool         cfg_allow_multi_graph_;
+ 
+   fawkes::NavigatorInterface *nav_if_;
+   fawkes::NavigatorInterface *pp_nav_if_;
+-- 
+2.9.3
+
+
+From 5ea3fdffda4efa0cdf8bdf196d919654811574ae Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Mon, 13 Mar 2017 10:48:25 +0100
+Subject: [PATCH 5/8] config: add navgraph config entry for multi-graph loading
+
+This feature remains disabled by default, as it is often the more
+desirable situation to have a single connected graph (note that
+explicitly unconnected nodes remain allowed).
+---
+ cfg/conf.d/navgraph.yaml | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/cfg/conf.d/navgraph.yaml b/cfg/conf.d/navgraph.yaml
+index e5e53bd..8932803 100644
+--- a/cfg/conf.d/navgraph.yaml
++++ b/cfg/conf.d/navgraph.yaml
+@@ -48,6 +48,13 @@ navgraph:
+   # only if you really know what you are doing.
+   abort_on_error: true
+ 
++  # Allow that there are multiple graph segments without interconnect.
++  # This can also be useful, for example, if there are explicitly unconnected
++  # nodes in the graph, for example to store semantic information but which
++  # need not be traveled to.
++  # This flag is used during loading the graph_file initially, only.
++  allow_multi_graph: false
++
+   # Monitor graph file and automatically reload on changes?
+   monitor_file: true
+ 
+-- 
+2.9.3
+
+
+From ff6cf444ad84e8106f5ce4e0d4f538870b977c8c Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Mon, 13 Mar 2017 10:50:57 +0100
+Subject: [PATCH 6/8] libnavgraph: properly save unconnected and insert-mode
+ tags
+
+The special unconnected and insert-mode properties were not saved to the
+YAML file when saving a navgraph.
+---
+ src/libs/navgraph/yaml_navgraph.cpp | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/src/libs/navgraph/yaml_navgraph.cpp b/src/libs/navgraph/yaml_navgraph.cpp
+index 0833b9d..8a2c0f5 100644
+--- a/src/libs/navgraph/yaml_navgraph.cpp
++++ b/src/libs/navgraph/yaml_navgraph.cpp
+@@ -415,6 +415,7 @@ save_yaml_navgraph(std::string filename, NavGraph *graph)
+ 
+   const std::vector<NavGraphNode> &nodes = graph->nodes();
+   for (const NavGraphNode &node : nodes) {
++    if (node.unconnected())  out << YAML::LocalTag("unconnected");
+     out << YAML::BeginMap
+ 	<< YAML::Key   << "name"
+ 	<< YAML::Value << node.name()
+@@ -443,6 +444,16 @@ save_yaml_navgraph(std::string filename, NavGraph *graph)
+   const std::vector<NavGraphEdge> &edges = graph->edges();
+   for (const NavGraphEdge &edge : edges) {
+     if (edge.is_directed())  out << YAML::LocalTag("dir");
++    if (edge.has_property("insert-mode")) {
++	    std::string insert_mode = edge.property("insert-mode");
++	    if (insert_mode == "force") {
++		    out << YAML::LocalTag("allow-intersection");
++	    } else if (insert_mode == "no-intersection") {
++		    out << YAML::LocalTag("no-intersection");
++	    } else if (insert_mode == "split-intersection") {
++		    out << YAML::LocalTag("split-intersection");
++	    }
++    }
+     out << YAML::Flow << YAML::BeginSeq << edge.from() << edge.to() << YAML::EndSeq;
+   }
+ 
+-- 
+2.9.3
+
+
+From 1539e537dc6dbe3408371b2dc1a99af537ab6875 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Mon, 13 Mar 2017 10:52:23 +0100
+Subject: [PATCH 7/8] navgraph: move finalization code from loop() to
+ finalize()
+
+---
+ src/plugins/navgraph/rospub_thread.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/plugins/navgraph/rospub_thread.cpp b/src/plugins/navgraph/rospub_thread.cpp
+index 89d3b68..6073f73 100644
+--- a/src/plugins/navgraph/rospub_thread.cpp
++++ b/src/plugins/navgraph/rospub_thread.cpp
+@@ -59,13 +59,13 @@ NavGraphROSPubThread::init()
+ void
+ NavGraphROSPubThread::finalize()
+ {
++	navgraph->remove_change_listener(this);
+ 	pub_.shutdown();
+ }
+ 
+ void
+ NavGraphROSPubThread::loop()
+ {
+-	navgraph->remove_change_listener(this);
+ }
+ 
+ 
+-- 
+2.9.3
+
+
+From 212d73df47596651a5a8cc834da65ccb9d6932b3 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Mon, 13 Mar 2017 11:21:57 +0100
+Subject: [PATCH 8/8] navgraph: expose ROS services for path search and
+ pairwise costs
+
+This extends the ROS interface (publishing the navgraph) by a service to
+search for a path between two nodes (or from the current position or to
+a freely chosen goal position). Additionally, a service allows to
+calculate pairwise costs among a number of nodes. This can be a typical
+inquiry for task planning systems for cost estimation and is handled
+more efficiently this way than with many (hundreds or more) calls to the
+path search service.
+---
+ src/plugins/navgraph/Makefile          |  15 ++-
+ src/plugins/navgraph/rospub_thread.cpp | 164 +++++++++++++++++++++++++++++++--
+ src/plugins/navgraph/rospub_thread.h   |  20 +++-
+ 3 files changed, 180 insertions(+), 19 deletions(-)
+
+diff --git a/src/plugins/navgraph/Makefile b/src/plugins/navgraph/Makefile
+index e6fab06..f828b52 100644
+--- a/src/plugins/navgraph/Makefile
++++ b/src/plugins/navgraph/Makefile
+@@ -43,14 +43,13 @@ ifeq ($(HAVE_CPP11)$(HAVE_TF)$(HAVE_NAVGRAPH),111)
+   ifeq ($(HAVE_ROS),1)
+ 
+     LIBS_navgraph += fawkesrosaspect
+-    CFLAGS += $(CFLAGS_ROS)
++    CFLAGS += $(CFLAGS_ROS) $(CFLAGS_TF)
++    LDFLAGS += $(LDFLAGS_ROS) $(LDFLAGS_TF)
+ 
+     ifeq ($(ENABLE_VISUALIZATION),1)
+       ifeq ($(call ros-have-pkg,visualization_msgs),1)
+-        CFLAGS  += -DHAVE_VISUALIZATION
+-        CFLAGS_visualization_thread = $(CFLAGS) $(CFLAGS_TF) \
+-				                              $(call ros-pkg-cflags,visualization_msgs)
+-        LDFLAGS += $(LDFLAGS_ROS) $(call ros-pkg-lflags,visualization_msgs)
++        CFLAGS  += -DHAVE_VISUALIZATION $(call ros-pkg-cflags,visualization_msgs)
++        LDFLAGS += $(call ros-pkg-lflags,visualization_msgs)
+ 
+         OBJS_navgraph += visualization_thread.o
+       else
+@@ -60,10 +59,8 @@ ifeq ($(HAVE_CPP11)$(HAVE_TF)$(HAVE_NAVGRAPH),111)
+     endif
+ 
+     ifeq ($(call ros-have-pkg,fawkes_msgs),1)
+-      CFLAGS  += -DHAVE_FAWKES_MSGS
+-      CFLAGS_rospub_thread = $(CFLAGS)  \
+-			                       $(call ros-pkg-cflags,fawkes_msgs)
+-      LDFLAGS += $(LDFLAGS_ROS) $(call ros-pkg-lflags,fawkes_msgs)
++      CFLAGS  += -DHAVE_FAWKES_MSGS $(call ros-pkg-cflags,fawkes_msgs)
++      LDFLAGS += $(call ros-pkg-lflags,fawkes_msgs)
+ 
+       OBJS_navgraph += rospub_thread.o
+     else
+diff --git a/src/plugins/navgraph/rospub_thread.cpp b/src/plugins/navgraph/rospub_thread.cpp
+index 6073f73..8eda4bd 100644
+--- a/src/plugins/navgraph/rospub_thread.cpp
++++ b/src/plugins/navgraph/rospub_thread.cpp
+@@ -27,6 +27,8 @@
+ #include <fawkes_msgs/NavGraphNode.h>
+ #include <fawkes_msgs/NavGraphEdge.h>
+ 
++#include <cmath>
++
+ using namespace fawkes;
+ 
+ /** @class NavGraphROSPubThread "rospub_thread.h"
+@@ -49,7 +51,14 @@ NavGraphROSPubThread::~NavGraphROSPubThread()
+ void
+ NavGraphROSPubThread::init()
+ {
+-	pub_ = rosnode->advertise<fawkes_msgs::NavGraph>("navgraph", 10, /* latching */ true);
++  cfg_base_frame_      = config->get_string("/frames/base");
++  cfg_global_frame_    = config->get_string("/frames/fixed");
++
++  pub_ = rosnode->advertise<fawkes_msgs::NavGraph>("navgraph", 10, /* latching */ true);
++	svs_search_path_ = rosnode->advertiseService("navgraph/search_path",
++	                                             &NavGraphROSPubThread::svs_search_path_cb, this);
++	svs_get_pwcosts_ = rosnode->advertiseService("navgraph/get_pairwise_costs",
++	                                             &NavGraphROSPubThread::svs_get_pwcosts_cb, this);
+ 
+ 	publish_graph();
+ 	
+@@ -61,6 +70,8 @@ NavGraphROSPubThread::finalize()
+ {
+ 	navgraph->remove_change_listener(this);
+ 	pub_.shutdown();
++	svs_search_path_.shutdown();
++	svs_get_pwcosts_.shutdown();
+ }
+ 
+ void
+@@ -82,14 +93,11 @@ NavGraphROSPubThread::graph_changed() throw()
+ 	}
+ }
+ 
++
+ void
+-NavGraphROSPubThread::publish_graph()
++NavGraphROSPubThread::convert_nodes(const std::vector<fawkes::NavGraphNode> &nodes,
++                                    std::vector<fawkes_msgs::NavGraphNode> &out)
+ {
+-	MutexLocker lock(navgraph.objmutex_ptr());
+-
+-	fawkes_msgs::NavGraph ngm;
+-
+-	const std::vector<NavGraphNode> &nodes = navgraph->nodes();
+ 	for (const NavGraphNode &node : nodes) {
+ 		fawkes_msgs::NavGraphNode ngn;
+ 		ngn.name = node.name();
+@@ -107,8 +115,20 @@ NavGraphROSPubThread::publish_graph()
+ 			ngp.value = p.second;
+ 			ngn.properties.push_back(ngp);
+ 		}
+-		ngm.nodes.push_back(ngn);
++		out.push_back(ngn);
+ 	}
++}
++
++void
++NavGraphROSPubThread::publish_graph()
++{
++	MutexLocker lock(navgraph.objmutex_ptr());
++
++	fawkes_msgs::NavGraph ngm;
++
++	const std::vector<NavGraphNode> &nodes = navgraph->nodes();
++	convert_nodes(nodes, ngm.nodes);
++
+ 	const std::vector<NavGraphEdge> &edges = navgraph->edges();
+ 	for (const NavGraphEdge &edge : edges) {
+ 		fawkes_msgs::NavGraphEdge nge;
+@@ -127,3 +147,131 @@ NavGraphROSPubThread::publish_graph()
+ 	
+ 	pub_.publish(ngm);
+ }
++
++
++bool
++NavGraphROSPubThread::svs_search_path_cb(fawkes_msgs::NavGraphSearchPath::Request  &req,
++                                         fawkes_msgs::NavGraphSearchPath::Response &res)
++{
++	NavGraphNode from, to;
++
++
++	if (req.from_node.empty()) {
++		fawkes::tf::Stamped<fawkes::tf::Pose> pose;
++		if (! tf_listener->transform_origin(cfg_base_frame_, cfg_global_frame_, pose)) {
++			logger->log_warn(name(),
++			                 "Failed to compute pose, cannot generate plan");
++
++			res.ok = false;
++			res.errmsg = "Failed to compute pose, cannot generate plan";
++			return true;
++		}
++
++		from =
++			navgraph->closest_node(pose.getOrigin().x(), pose.getOrigin().y());
++		if (! from.is_valid()) {
++			res.ok = false;
++			res.errmsg = "Failed to get closest node to pose";
++			return true;
++		}
++
++		fawkes_msgs::NavGraphNode free_start;
++		free_start.name = "free-start";
++		free_start.pose.x = pose.getOrigin().x();
++		free_start.pose.y = pose.getOrigin().y();
++		free_start.has_orientation = true;
++		free_start.pose.theta = tf::get_yaw(pose.getRotation());
++		res.path.push_back(free_start);
++	} else {
++		from = navgraph->node(req.from_node);
++		if (! from.is_valid()) {
++			res.ok = false;
++			res.errmsg = "Failed to find start node " + req.from_node;
++			return true;
++		}
++	}
++
++	NavGraphPath path;
++
++	if (! req.to_node.empty()) {
++		path = navgraph->search_path(from.name(), req.to_node);
++	} else {
++		NavGraphNode close_to_goal = navgraph->closest_node(req.to_pose.x, req.to_pose.y);
++		path = navgraph->search_path(from, close_to_goal);
++		if (! path.empty()) {
++			NavGraphNode free_target("free-target", req.to_pose.x, req.to_pose.y);
++			if (std::isfinite(req.to_pose.theta)) {
++				free_target.set_property("orientation", (float)req.to_pose.theta);
++			}
++			path.add_node(free_target, navgraph->cost(path.nodes().back(), free_target));
++		}
++	}
++
++	// translate path into result
++	convert_nodes(path.nodes(), res.path);
++	res.cost = path.cost();
++	
++	res.ok = true;
++	return true;
++}
++
++bool
++NavGraphROSPubThread::svs_get_pwcosts_cb(fawkes_msgs::NavGraphGetPairwiseCosts::Request  &req,
++                                         fawkes_msgs::NavGraphGetPairwiseCosts::Response &res)
++{
++	for (unsigned int i = 0; i < req.nodes.size(); ++i) {
++		for (unsigned int j = 0; j < req.nodes.size(); ++j) {
++			if (i == j) continue;
++
++			fawkes::NavGraphNode from_node, to_node;
++			try {
++				from_node = navgraph->node(req.nodes[i]);
++				to_node = navgraph->node(req.nodes[j]);
++			} catch (fawkes::Exception &e) {
++				res.ok = false;
++				res.errmsg = "Failed to get path from '" + req.nodes[i] + "' to '" +
++					req.nodes[j] + "': " + e.what_no_backtrace();
++				res.path_costs.clear();
++				return true;					
++			}
++
++			fawkes::NavGraphNode start_node, goal_node;
++				
++			if (from_node.unconnected()) {
++				start_node = navgraph->closest_node_to(from_node.name());
++				//logger->log_warn(name(), "[F-NavGraph] From node %s is UNCONNECTED, starting instead from %s",
++				//                 from_node.name().c_str(), start_node.name().c_str());
++			} else {
++				start_node = from_node;
++			}
++			if (to_node.unconnected()) {
++				goal_node = navgraph->closest_node_to(to_node.name());
++				//logger->log_warn(name(), "[F-NavGraph] To node %s is UNCONNECTED, ending instead at %s",
++				//                 to_node.name().c_str(), goal_node.name().c_str());
++			} else {
++				goal_node = to_node;
++			}
++			fawkes::NavGraphPath p = navgraph->search_path(start_node, goal_node);
++			if (p.empty()) {
++				res.ok = false;
++				res.errmsg = "Failed to get path from '" + start_node.name() + "' to '" + goal_node.name() + "'";
++				res.path_costs.clear();
++				return true;
++			}
++			fawkes_msgs::NavGraphPathCost pc;
++			pc.from_node = req.nodes[i];
++			pc.to_node = req.nodes[j];
++			pc.cost = p.cost();
++			if (from_node.unconnected()) {
++				pc.cost += navgraph->cost(from_node, start_node);
++			}
++			if (to_node.unconnected()) {
++				pc.cost += navgraph->cost(goal_node, to_node);
++			}
++			res.path_costs.push_back(pc);
++		}
++	}
++
++	res.ok = true;
++	return true;	
++}
+diff --git a/src/plugins/navgraph/rospub_thread.h b/src/plugins/navgraph/rospub_thread.h
+index 9d20689..22167e7 100644
+--- a/src/plugins/navgraph/rospub_thread.h
++++ b/src/plugins/navgraph/rospub_thread.h
+@@ -25,24 +25,28 @@
+ #include <aspect/clock.h>
+ #include <aspect/configurable.h>
+ #include <aspect/logging.h>
+-#include <aspect/aspect_provider.h>
++#include <aspect/tf.h>
+ #include <plugins/ros/aspect/ros.h>
+ #include <navgraph/aspect/navgraph.h>
+ 
+ #include <navgraph/navgraph.h>
+ 
+ #include <ros/publisher.h>
++#include <ros/service_server.h>
++
++#include <fawkes_msgs/NavGraphSearchPath.h>
++#include <fawkes_msgs/NavGraphGetPairwiseCosts.h>
+ 
+ class NavGraphROSPubThread
+ : public fawkes::Thread,
+   public fawkes::ClockAspect,
+   public fawkes::LoggingAspect,
+   public fawkes::ConfigurableAspect,
++	public fawkes::TransformAspect,
+   public fawkes::ROSAspect,
+ 	public fawkes::NavGraphAspect,
+ 	public fawkes::NavGraph::ChangeListener
+ {
+- private:
+  public:
+   NavGraphROSPubThread();
+   virtual ~NavGraphROSPubThread();
+@@ -58,9 +62,21 @@ class NavGraphROSPubThread
+ 
+  private:
+   void publish_graph();
++  void convert_nodes(const std::vector<fawkes::NavGraphNode> &nodes,
++                     std::vector<fawkes_msgs::NavGraphNode> &out);
++
++  bool svs_search_path_cb(fawkes_msgs::NavGraphSearchPath::Request  &req,
++                          fawkes_msgs::NavGraphSearchPath::Response &res);
++  bool svs_get_pwcosts_cb(fawkes_msgs::NavGraphGetPairwiseCosts::Request  &req,
++                          fawkes_msgs::NavGraphGetPairwiseCosts::Response &res);
+ 
+  private:
++  std::string  cfg_base_frame_;
++  std::string  cfg_global_frame_;
++
+   ros::Publisher pub_;
++  ros::ServiceServer svs_search_path_;
++  ros::ServiceServer svs_get_pwcosts_;
+ };
+ 
+ #endif
+-- 
+2.9.3
+

@@ -1,0 +1,29 @@
+From 565142bcf78887b5ca2046da143479a41dfc28cb Mon Sep 17 00:00:00 2001
+From: Frederik Zwilling <zwilling@kbsg.rwth-aachen.de>
+Date: Thu, 9 Mar 2017 14:40:15 +0100
+Subject: [PATCH] gazsim-scripts: start gzclient separately to avoid black GUI
+
+There seems to be a problem with the gazebo client, which may only show a
+black world when started together with the gazebo server. Because this
+problem does not occur when starting both separately with a delay in
+between, the startup script was changed accordingly.
+---
+ etc/scripts/gazsim-startup.bash | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/etc/scripts/gazsim-startup.bash b/etc/scripts/gazsim-startup.bash
+index d2f0cf7..1ef3c0e 100755
+--- a/etc/scripts/gazsim-startup.bash
++++ b/etc/scripts/gazsim-startup.bash
+@@ -154,7 +154,7 @@ case $COMMAND in
+     gazebo )
+ 	# change Language (in german there is an error that gazebo can not use a number with comma)
+ 	export LANG="en_US"
+-	gazebo $REPLAY $GAZEBO_WORLD_PATH
++	( gzserver $REPLAY $GAZEBO_WORLD_PATH & ); sleep 10s; gzclient
+ 	;;
+     gzserver ) 
+ 	# change Language (in german there is an error that gazebo can not use a number with comma)
+-- 
+2.9.3
+

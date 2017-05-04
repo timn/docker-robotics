@@ -1,0 +1,374 @@
+From 0e23ace16e4a461afcdd8a17f61f63105b1a45d5 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Sat, 29 Apr 2017 01:10:50 +0200
+Subject: [PATCH 1/3] protobuf_comm: gracefully handle name resolution errors
+
+The peer is stateless in that there is no connection that has been
+established. However, if a host name (rather than an address) is given
+as the receiving endpoint, it must be resolved. In some situations, this
+may fail initially and for a limited time, e.g., when running in a
+container cluster such as Kubernetes and the peers might be other pods.
+
+We still want to keep the name resolution asynchronous (therefore, the
+ctor cannot just fail if name resolution fails) and we would like to get
+this with minimal changes to other code. Therefore, this is implemented
+as a feature internal to the broadcast peer. If resolution fails, it
+will keep trying in two second intervals. Through the send error signal,
+callers can now about this and still destroy the peer.
+---
+ src/libs/protobuf_comm/peer.cpp | 58 ++++++++++++++++++++++++++++++-----------
+ src/libs/protobuf_comm/peer.h   |  7 ++++-
+ 2 files changed, 49 insertions(+), 16 deletions(-)
+
+diff --git a/src/libs/protobuf_comm/peer.cpp b/src/libs/protobuf_comm/peer.cpp
+index 5c74403..6664ad0 100644
+--- a/src/libs/protobuf_comm/peer.cpp
++++ b/src/libs/protobuf_comm/peer.cpp
+@@ -60,7 +60,8 @@ namespace protobuf_comm {
+  */ 
+ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address, unsigned short port)
+   : io_service_(), resolver_(io_service_),
+-    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), port))
++    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), port)),
++    resolve_retry_timer_(io_service_)
+ {
+   message_register_ = new MessageRegister();
+   own_message_register_ = true;
+@@ -80,7 +81,8 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address,
+ 					     unsigned short send_to_port,
+ 					     unsigned short recv_on_port)
+   : io_service_(), resolver_(io_service_),
+-    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), recv_on_port))
++    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), recv_on_port)),
++    resolve_retry_timer_(io_service_)
+ {
+   message_register_ = new MessageRegister();
+   own_message_register_ = true;
+@@ -95,7 +97,8 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address,
+ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address, unsigned short port,
+ 					     std::vector<std::string> &proto_path)
+   : io_service_(), resolver_(io_service_),
+-    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), port))
++    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), port)),
++    resolve_retry_timer_(io_service_)
+ {
+   message_register_ = new MessageRegister(proto_path);
+   own_message_register_ = true;
+@@ -117,7 +120,8 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address,
+ 					     unsigned short recv_on_port,
+ 					     std::vector<std::string> &proto_path)
+   : io_service_(), resolver_(io_service_),
+-    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), recv_on_port))
++    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), recv_on_port)),
++    resolve_retry_timer_(io_service_)
+ {
+   message_register_ = new MessageRegister(proto_path);
+   own_message_register_ = true;
+@@ -134,6 +138,7 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address, unsigned
+ 					     MessageRegister *mr)
+   : io_service_(), resolver_(io_service_),
+     socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), port)),
++    resolve_retry_timer_(io_service_),
+     message_register_(mr), own_message_register_(false)
+ {
+   ctor(address, port);
+@@ -150,7 +155,8 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address,
+ 					     unsigned short send_to_port, unsigned short recv_on_port,
+ 					     const std::string crypto_key, const std::string cipher)
+   : io_service_(), resolver_(io_service_),
+-    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), recv_on_port))
++    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), recv_on_port)),
++    resolve_retry_timer_(io_service_)
+ {
+   ctor(address, send_to_port, crypto_key, cipher);
+   message_register_ = new MessageRegister();
+@@ -171,6 +177,7 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address,
+ 					     const std::string crypto_key, const std::string cipher)
+   : io_service_(), resolver_(io_service_),
+     socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), recv_on_port)),
++    resolve_retry_timer_(io_service_),
+     message_register_(mr), own_message_register_(false)
+ {
+   ctor(address, send_to_port, crypto_key, cipher);
+@@ -185,7 +192,8 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address,
+ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address, unsigned short port,
+ 					     const std::string crypto_key, const std::string cipher)
+   : io_service_(), resolver_(io_service_),
+-    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), port))
++    socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), port)),
++    resolve_retry_timer_(io_service_)
+ {
+   ctor(address, port, crypto_key, cipher);
+   message_register_ = new MessageRegister();
+@@ -204,6 +212,7 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address, unsigned
+ 					     const std::string crypto_key, const std::string cipher)
+   : io_service_(), resolver_(io_service_),
+     socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), port)),
++    resolve_retry_timer_(io_service_),
+     message_register_(mr), own_message_register_(false)
+ {
+   ctor(address, port, crypto_key, cipher);
+@@ -227,6 +236,7 @@ ProtobufBroadcastPeer::ProtobufBroadcastPeer(const std::string address,
+ 					     frame_header_version_t header_version)
+   : io_service_(), resolver_(io_service_),
+     socket_(io_service_, ip::udp::endpoint(ip::udp::v4(), recv_on_port)),
++    resolve_retry_timer_(io_service_),
+     message_register_(mr), own_message_register_(false)
+ {
+   ctor(address, send_to_port, "", "", header_version);
+@@ -251,6 +261,9 @@ ProtobufBroadcastPeer::ctor(const std::string &address, unsigned int send_to_por
+   crypto_dec_   = NULL;
+   frame_header_version_ = header_version;
+ 
++  send_to_address_ = address;
++  send_to_port_    = send_to_port;
++  
+   in_data_size_ = max_packet_length;
+   in_data_ = malloc(in_data_size_);
+   enc_in_data_ = NULL;
+@@ -259,12 +272,8 @@ ProtobufBroadcastPeer::ctor(const std::string &address, unsigned int send_to_por
+   socket_.set_option(socket_base::reuse_address(true));
+   determine_local_endpoints();
+ 
+-  outbound_active_ = true;
+-  ip::udp::resolver::query query(address, boost::lexical_cast<std::string>(send_to_port));
+-  resolver_.async_resolve(query,
+-			  boost::bind(&ProtobufBroadcastPeer::handle_resolve, this,
+-				      boost::asio::placeholders::error,
+-				      boost::asio::placeholders::iterator));
++  outbound_ready_ = outbound_active_ = false;
++  start_resolve();
+ 
+   if (! crypto_key.empty())  setup_crypto(crypto_key, cipher);
+ 
+@@ -276,6 +285,7 @@ ProtobufBroadcastPeer::ctor(const std::string &address, unsigned int send_to_por
+ /** Destructor. */
+ ProtobufBroadcastPeer::~ProtobufBroadcastPeer()
+ {
++	resolve_retry_timer_.cancel();
+   if (asio_thread_.joinable()) {
+     io_service_.stop();
+     asio_thread_.join();
+@@ -382,15 +392,33 @@ ProtobufBroadcastPeer::handle_resolve(const boost::system::error_code& err,
+ {
+   if (! err) {
+     std::lock_guard<std::mutex> lock(outbound_mutex_);
+-    outbound_active_   = false;
++    outbound_ready_    = true;
+     outbound_endpoint_ = endpoint_iterator->endpoint();
+   } else {
+-    sig_send_error_("Resolving endpoint failed");
++    sig_send_error_("Resolving endpoint failed, retrying");
++    resolve_retry_timer_.expires_from_now(boost::posix_time::seconds(2));
++    resolve_retry_timer_.async_wait(boost::bind(&ProtobufBroadcastPeer::retry_resolve, this, _1));
+   }
+   start_send();
+ }
+ 
+ void
++ProtobufBroadcastPeer::retry_resolve(const boost::system::error_code &ec)
++{
++	if (! ec)  start_resolve();
++}
++
++void
++ProtobufBroadcastPeer::start_resolve()
++{
++  ip::udp::resolver::query query(send_to_address_, boost::lexical_cast<std::string>(send_to_port_));
++  resolver_.async_resolve(query,
++			  boost::bind(&ProtobufBroadcastPeer::handle_resolve, this,
++				      boost::asio::placeholders::error,
++				      boost::asio::placeholders::iterator));
++}
++
++void
+ ProtobufBroadcastPeer::handle_recv(const boost::system::error_code& error,
+ 				   size_t bytes_rcvd)
+ {
+@@ -651,7 +679,7 @@ void
+ ProtobufBroadcastPeer::start_send()
+ {
+   std::lock_guard<std::mutex> lock(outbound_mutex_);
+-  if (outbound_queue_.empty() || outbound_active_)  return;
++  if (outbound_queue_.empty() || outbound_active_ || ! outbound_ready_)  return;
+ 
+   outbound_active_ = true;
+ 
+diff --git a/src/libs/protobuf_comm/peer.h b/src/libs/protobuf_comm/peer.h
+index 257ce93..33d0e50 100644
+--- a/src/libs/protobuf_comm/peer.h
++++ b/src/libs/protobuf_comm/peer.h
+@@ -161,6 +161,8 @@ class ProtobufBroadcastPeer
+   void run_asio();
+   void start_send();
+   void start_recv();
++  void start_resolve();
++  void retry_resolve(const boost::system::error_code &ec);
+   void handle_resolve(const boost::system::error_code& err,
+ 		      boost::asio::ip::udp::resolver::iterator endpoint_iterator);
+   void handle_sent(const boost::system::error_code& error,
+@@ -171,6 +173,7 @@ class ProtobufBroadcastPeer
+   boost::asio::io_service         io_service_;
+   boost::asio::ip::udp::resolver  resolver_;
+   boost::asio::ip::udp::socket    socket_;
++  boost::asio::deadline_timer     resolve_retry_timer_;
+ 
+   std::list<boost::asio::ip::udp::endpoint>  local_endpoints_;
+ 
+@@ -180,11 +183,13 @@ class ProtobufBroadcastPeer
+   signal_send_error_type   sig_send_error_;
+ 
+   std::string  send_to_address_;
++  unsigned int send_to_port_;
+ 
+   std::queue<QueueEntry *> outbound_queue_;
+   std::mutex               outbound_mutex_;
+   bool                     outbound_active_;
+-
++  bool                     outbound_ready_;
++  
+   boost::asio::ip::udp::endpoint outbound_endpoint_;
+   boost::asio::ip::udp::endpoint in_endpoint_;
+ 
+-- 
+2.9.3
+
+
+From fa4a14cf8802c776b94cd1ead785590fde83de5c Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Sat, 29 Apr 2017 01:14:30 +0200
+Subject: [PATCH 2/3] gazsim-comm: remove unused code
+
+The decoded message signal handler was unused as only raw messages are
+forwarded.
+---
+ .../gazebo/gazsim-comm/gazsim_comm_thread.cpp      | 36 ----------------------
+ .../gazebo/gazsim-comm/gazsim_comm_thread.h        |  3 --
+ 2 files changed, 39 deletions(-)
+
+diff --git a/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp b/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp
+index 1587a20..c104989 100644
+--- a/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp
++++ b/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp
+@@ -145,42 +145,6 @@ GazsimCommThread::loop()
+ }
+ 
+ /**
+- * Receive and forward msg
+- * @param endpoint port msg received from
+- * @param component_id message_component_id
+- * @param msg_type msg_type
+- * @param msg Message
+- */
+-void
+-GazsimCommThread::receive_msg(boost::asio::ip::udp::endpoint &endpoint,
+-		       uint16_t component_id, uint16_t msg_type,
+-		       std::shared_ptr<google::protobuf::Message> msg)
+-{
+-  //logger->log_info(name(), "Got Peer Message from port %d", endpoint.port());
+-  unsigned int incoming_peer_port = endpoint.port(); //this is suprisingly the send-port
+- 
+-  if(!initialized_)
+-  {
+-    return;
+-  }
+-
+-  //simulate package loss
+-  double rnd = ((double) rand()) / ((double) RAND_MAX); //0.0 <= rnd <= 1.0
+-  if(rnd < package_loss_)
+-  {
+-    return;
+-  }
+-  //send message to all other peers
+-  for(unsigned int i = 0; i < peers_.size(); i++)
+-  {
+-    if(send_ports_[i] != incoming_peer_port)
+-    {
+-      peers_[i]->send(msg);
+-    }
+-  }
+-}
+-
+-/**
+  * Receive and forward raw msg
+  * @param endpoint port msg received from
+  * @param header header of the msg
+diff --git a/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h b/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h
+index 364a24c..b02341d 100644
+--- a/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h
++++ b/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h
+@@ -54,9 +54,6 @@ class GazsimCommThread
+   virtual void loop();
+   virtual void finalize();
+ 
+-  void receive_msg(boost::asio::ip::udp::endpoint &endpoint,
+-		       uint16_t component_id, uint16_t msg_type,
+-		       std::shared_ptr<google::protobuf::Message> msg);
+   void receive_raw_msg(boost::asio::ip::udp::endpoint &endpoint,
+ 		       protobuf_comm::frame_header_t &header, void * data,
+ 		       size_t length);
+-- 
+2.9.3
+
+
+From 66edeb847b3156ddfed933e6f5981f4e8ffaeb59 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Sat, 29 Apr 2017 01:14:59 +0200
+Subject: [PATCH 3/3] gazsim-comm: print warnings on send errors
+
+---
+ src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp | 9 +++++++++
+ src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h   | 2 ++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp b/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp
+index c104989..c7d8b09 100644
+--- a/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp
++++ b/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.cpp
+@@ -112,17 +112,20 @@ GazsimCommThread::init()
+     peers_[i] = new ProtobufBroadcastPeer(addresses_[i], send_ports_[i],
+ 					  recv_ports_[i], proto_dirs_);
+     peers_[i]->signal_received_raw().connect(boost::bind(&GazsimCommThread::receive_raw_msg, this, _1, _2, _3, _4));
++    peers_[i]->signal_send_error().connect(boost::bind(&GazsimCommThread::peer_send_error, this, addresses_[i], send_ports_[i], _1));
+     if(use_crypto1_)
+     {
+       peers_crypto1_[i] = new ProtobufBroadcastPeer(addresses_[i], send_ports_crypto1_[i],
+ 					  recv_ports_crypto1_[i], proto_dirs_);
+       peers_crypto1_[i]->signal_received_raw().connect(boost::bind(&GazsimCommThread::receive_raw_msg, this, _1, _2, _3, _4));
++      peers_crypto1_[i]->signal_send_error().connect(boost::bind(&GazsimCommThread::peer_send_error, this, addresses_[i], send_ports_crypto1_[i], _1));
+     }
+     if(use_crypto2_)
+     {
+       peers_crypto2_[i] = new ProtobufBroadcastPeer(addresses_[i], send_ports_crypto2_[i],
+ 						    recv_ports_crypto2_[i], proto_dirs_);
+       peers_crypto2_[i]->signal_received_raw().connect(boost::bind(&GazsimCommThread::receive_raw_msg, this, _1, _2, _3, _4));
++      peers_crypto2_[i]->signal_send_error().connect(boost::bind(&GazsimCommThread::peer_send_error, this, addresses_[i], send_ports_crypto2_[i], _1));
+     }
+   }
+   initialized_ = true;
+@@ -199,3 +202,9 @@ GazsimCommThread::receive_raw_msg(boost::asio::ip::udp::endpoint &endpoint,
+     }
+   }
+ }
++
++void
++GazsimCommThread::peer_send_error(std::string address, unsigned int port, std::string err)
++{
++	logger->log_warn(name(), "Peer send error for %s:%u: %s", address.c_str(), port, err.c_str());
++}
+diff --git a/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h b/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h
+index b02341d..84786a2 100644
+--- a/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h
++++ b/src/plugins/gazebo/gazsim-comm/gazsim_comm_thread.h
+@@ -58,6 +58,8 @@ class GazsimCommThread
+ 		       protobuf_comm::frame_header_t &header, void * data,
+ 		       size_t length);
+ 
++  void peer_send_error(std::string address, unsigned int port, std::string err);
++  
+  /** Stub to see name in backtrace for easier debugging. @see Thread::run() */
+  protected: virtual void run() { Thread::run(); }
+ 
+-- 
+2.9.3
+

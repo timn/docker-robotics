@@ -1,0 +1,22 @@
+diff --git a/cfg/conf.d/navgraph-generator.yaml b/cfg/conf.d/navgraph-generator.yaml
+index e42bd54..436e871 100644
+--- a/cfg/conf.d/navgraph-generator.yaml
++++ b/cfg/conf.d/navgraph-generator.yaml
+@@ -55,6 +55,17 @@ navgraph-generator:
+   visualization:
+     enable: true
+ 
++  # Save a generated navgraph automatically to disk.
++
++  # This can be enabled, e.g., for later debugging or during automated
++  # experiments.
++  save-to-file:
++    enable: true
++    # Filename, if starting with a slash (/), absolute path is assumed,
++    # otherwise, it is assumed to be relative to the config directory.
++    # Path may not contain two consecutive dots (..).
++    filename: navgraph-generated.yaml
++
+ navgraph-generator-mps:
+   # The width (length of narrow edge) of MPS stations; m
+   mps-width: 0.3
