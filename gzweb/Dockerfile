@@ -51,9 +51,11 @@ RUN apt-get update && apt-get install -q -y jq \
 
 COPY scripts/* /opt/gzweb/
 
+# Not required in Kubernetes
 # setup environment
-EXPOSE 8080
-EXPOSE 7681
+#EXPOSE 8080
+#EXPOSE 7681
 
+# Not required in Kubernetes
 # run gzserver and gzweb
-CMD ./root/gzweb/start_gzweb.sh && gzserver
+#CMD ./root/gzweb/start_gzweb.sh && gzserver
