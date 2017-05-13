@@ -54,17 +54,13 @@ case $COMPONENT in
 					URL="https://kubernetes.default/api/v1/pods?labelSelector=app%3dfawkes,robot+in+%28${CLAUSE}%29"
 					echo "*** Getting endpoints ***"
 					echo "URL: $URL"
-					curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL"
-					echo
-					echo "************************************"
-					echo "*** Number of detected endpoints ***"
-					curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL" \
-						| jq -r '.items | map(select(.status.phase=="Running")) | length'
-					echo
-					echo "************************************"
+					RESULT=$(curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL")
+					#echo
+					#echo "************************************"
+					#echo "*** Number of detected endpoints ***"
+					N=$(jq -r '.items | map(select(.status.phase=="Running")) | length' <<< "$RESULT")
+					echo "N: $N"
 
-					N=$(curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL" \
-								| jq -r '.items | map(select(.status.phase=="Running")) | length')
 					if [ -z "$N" ]; then N=0; fi
 					(( TRIES=TRIES+1 ))
 					if (( $N != ${#ROBOTS[@]} )); then
