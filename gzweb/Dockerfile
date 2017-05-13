@@ -7,11 +7,13 @@ FROM gazebo:libgazebo7
 RUN apt-get update && apt-get install -q -y \
     build-essential \
     cmake \
+    git \
     imagemagick \
     libboost-all-dev \
     libgts-dev \
     libjansson-dev \
     libtinyxml-dev \
+    libyaml-cpp-dev \
     mercurial \
     nodejs \
     nodejs-legacy \
@@ -23,6 +25,12 @@ RUN apt-get update && apt-get install -q -y \
 # install gazebo packages
 RUN apt-get update && apt-get upgrade -q -y \
     && rm -rf /var/lib/apt/lists/*
+
+# Get and compile Gazebo stuff
+RUN cd /opt && \
+	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
+	cd gazebo-rcll/plugins && \
+	make -j$(nproc) CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic"
 
 # clone gzweb
 RUN hg clone https://bitbucket.org/osrf/gzweb /opt/gzweb
