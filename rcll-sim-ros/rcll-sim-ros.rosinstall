@@ -1,0 +1,20 @@
+- git:
+    local-name: rcll_ros
+    uri: https://github.com/timn/ros-rcll_ros.git
+    version: master
+- git:
+    local-name: rcll_ros_msgs
+    uri: https://github.com/timn/ros-rcll_ros_msgs.git
+    version: master
+- git:
+    local-name: rcll_refbox_peer
+    uri: https://github.com/timn/ros-rcll_refbox_peer.git
+    version: master
+- git:
+    local-name: rcll_fawkes_sim_msgs
+    uri: https://github.com/timn/ros-rcll_fawkes_sim_msgs.git
+    version: master
+- git:
+    local-name: rcll_fawkes_sim
+    uri: https://github.com/timn/ros-rcll_fawkes_sim.git
+    version: master
