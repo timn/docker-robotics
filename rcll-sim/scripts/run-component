@@ -39,7 +39,7 @@ case $COMPONENT in
 
 		# Setup team names
 		echo "Setup team names (cyan: $TEAM_CYAN  magenta: $TEAM_MAGENTA)"
-		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w120 -c $TEAM_CYAN -m $TEAM_MAGENTA || exit 32
+		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_SETUP_TIMEOUT:-120} -c $TEAM_CYAN -m $TEAM_MAGENTA || exit 32
 
 		if [ -n "$KUBERNETES" ]; then
 			echo "Running in Kubernetes, waiting for robot pods (${ROBOTS[*]})"
@@ -85,16 +85,16 @@ case $COMPONENT in
 
 		# Ok, all good, run game
 		echo "Starting game"
-		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w30 -p SETUP -s RUNNING || exit 34
+		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT:-30} -p SETUP -s RUNNING || exit 34
 
 		# Prematurely end SETUP phase and go straight to production (as per sim-comp rules)
-		sleep 90
+		sleep ${PREPARE_TIMEOUT:-90}
 		echo "Switching to production phase"
-		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w30 -p PRODUCTION || exit 35
+		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT:-30} -p PRODUCTION || exit 35
 
 		# Wait production time, plus overtime, plus some
 		echo "Waiting for RCLL game to finish"
-		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w30 -W1230 -p POST_GAME || exit 36
+		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT:-30} -W${PRODUCTION_TIMEOUT:-1230} -p POST_GAME
 
 		echo "Simulation run completed"
 		;;
