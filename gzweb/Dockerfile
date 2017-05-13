@@ -19,7 +19,8 @@ RUN apt-get update && apt-get install -q -y \
     nodejs-legacy \
     npm \
     pkg-config \
-    psmisc\
+    psmisc \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 # install gazebo packages
@@ -39,7 +40,12 @@ RUN hg clone https://bitbucket.org/osrf/gzweb /opt/gzweb
 RUN bash -c "\
     cd /opt/gzweb \
     && hg up default \
-    && ./deploy.sh -m
+		&& mkdir -p http/client/assets \
+    && sed -i -e 's/gzserver/xvfb-run -s \"-screen 0 1280x1024x24\" gzserver/g' tools/gzthumbnails.sh \
+    && source /usr/share/gazebo/setup.sh \
+    && export GAZEBO_MODEL_PATH=\"$GAZEBO_MODEL_PATH:/opt/gazebo-rcll/models\" \
+    && ./deploy.sh -m \
+    "
 
 # setup environment
 EXPOSE 8080
