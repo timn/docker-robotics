@@ -45,10 +45,10 @@ case $COMPONENT in
 			echo "Running in Kubernetes, waiting for robot pods (${ROBOTS[*]})"
 			# Wait for the expected robot pods
 			if [ -n "$ROBOTS" ]; then
-				declare -a ROBOTS=($ROBOTS)
-				CLAUSE=$(IFS="%2C"; echo "${ROBOTS[*]}")
+				CLAUSE=${ROBOTS// /%2C}
 				TRIES=0
 				N=0
+				declare -a ROBOTS=($ROBOTS)
 				while (( $N != ${#ROBOTS[@]} )); do
 					# Debug to read in log
 					URL="https://kubernetes.default/api/v1/pods?labelSelector=app%3dfawkes,robot+in+%28${CLAUSE}%29"
