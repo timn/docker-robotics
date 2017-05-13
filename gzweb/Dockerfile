@@ -21,15 +21,15 @@ RUN apt-get update && apt-get install -q -y \
     && rm -rf /var/lib/apt/lists/*
 
 # install gazebo packages
-RUN apt-get update && apt-get install -q -y \
-    libgazebo7-dev=7.5.0* \
+RUN apt-get update && apt-get upgrade -q -y \
     && rm -rf /var/lib/apt/lists/*
 
 # clone gzweb
-RUN hg clone https://bitbucket.org/osrf/gzweb ~/gzweb
+RUN hg clone https://bitbucket.org/osrf/gzweb /opt/gzweb
 
 # build gzweb
-RUN cd ~/gzweb \
+RUN bash -c "\
+    cd /opt/gzweb \
     && hg up default \
     && ./deploy.sh -m
 
