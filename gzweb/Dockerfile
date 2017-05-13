@@ -46,6 +46,10 @@ RUN bash -c "\
     && export GAZEBO_MODEL_PATH=\"$GAZEBO_MODEL_PATH:/opt/gazebo-rcll/models\" \
     && ./deploy.sh -m \
     "
+RUN apt-get update && apt-get install -q -y jq \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/* /opt/gzweb/
 
 # setup environment
 EXPOSE 8080

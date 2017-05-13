@@ -1,0 +1,78 @@
+#!/bin/bash
+
+SCRIPT_PATH=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+#source $SCRIPT_PATH/setup.bash
+
+declare -a SERVICES=("$@")
+
+if [ -z "$SERVICES" ]; then
+	2>&1 echo "No services given to wait for, aborting"
+	exit 11
+fi
+
+MAX_TRIES=${MAX_TRIES:-12}
+PERIOD=${PERIOD:-10}
+
+echo "Checking services ${SERVICES[@]}"
+
+if [ -e /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
+	KUBERNETES="true"
+	KUBERNETES_CACRT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+	KUBERNETES_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+	KUBERNETES_NAMESPACE=${KUBERNETES_NAMESPACE:-$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)}
+fi
+
+if [ -z "$KUBERNETES" ]; then
+	2>&1 echo "Not running in Kubernetes, aborting"
+	exit 12
+fi
+
+URLS=()
+for s in "${SERVICES[@]}"; do
+	URLS+=("https://kubernetes.default/api/v1/namespaces/$KUBERNETES_NAMESPACE/endpoints/$s")
+done
+
+TRIES=0
+while true; do
+	FOUND=()
+	echo "******** Getting endpoints *********"
+	for i in "${!SERVICES[@]}"; do
+		echo "Service: ${SERVICES[$i]}"
+		echo "URL: ${URLS[$i]}"
+		RESULT=$(curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "${URLS[$i]}")
+		KIND=$(jq -r '.kind' <<< "$RESULT")
+		if [ "$KIND" == "Endpoints" ]; then
+			N=$(jq -r '.subsets[].addresses | length' <<< "$RESULT")
+			if [ -z "$N" ]; then N=0; fi
+			echo "Num endpoints: $N"
+
+			if [ "$N" -gt "0" ]; then
+				FOUND+=("${SERVICES[$i]}")
+				echo "Ok: YES"
+			else
+				echo "Ok: NO"
+			fi
+		else
+			echo "Error: $(jq -r '.message' <<< "$RESULT")"
+			echo "Ok: NO"
+		fi
+		echo
+	done
+
+	echo "Found: ${FOUND[*]}"
+	echo "Expected: ${SERVICES[*]}"
+	echo "************************************"
+	
+	if [ "${FOUND[*]}" == "${SERVICES[*]}" ]; then
+		exit 0
+	else
+		(( TRIES=TRIES+1 ))
+		if (( $TRIES >= $MAX_TRIES )); then
+			2>&1 echo "Tried $MAX_TRIES times, aborting"
+			exit 1
+		else
+			echo "Cannot (yet) find service endpoints, retrying ($TRIES tries so far)"
+			sleep $PERIOD
+		fi
+	fi
+done

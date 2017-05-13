@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Save some environment variables which might be set from container
+# env but would be overwritten by some statements (from included files)
+SAVE_VARS="GAZEBO_MASTER_URI ROS_MASTER_URI"
+
+for v in $SAVE_VARS; do
+  if [ -n "${!v}" ]; then
+    eval PREENV_$v=${!v}
+  fi
+done
+
+source /usr/share/gazebo/setup.sh
+
+export GAZEBO_RCLL=/opt/gazebo-rcll
+export GAZEBO_PLUGIN_PATH=$GAZEBO_PLUGIN_PATH:$GAZEBO_RCLL/plugins/lib/gazebo
+export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:$GAZEBO_RCLL/models:$GAZEBO_RCLL/models/carologistics
+
+# Restore some settings from before
+for v in $SAVE_VARS; do
+  VN=PREENV_$v
+  if [ -n "${!VN}" ]; then
+    export $v=${!VN}
+  fi
+done
+
+# Run the actual gzweb
+/opt/gzweb/start_gzweb.sh
+
+sleep infinity
+
