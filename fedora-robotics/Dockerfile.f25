@@ -1,5 +1,4 @@
 FROM       fedora:25
-MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
 
 # Disable Delta RPM, since docs are stripped doesn't work
 RUN echo "deltarpm=0" >> /etc/dnf/dnf.conf && \
