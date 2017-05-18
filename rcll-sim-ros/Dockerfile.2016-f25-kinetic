@@ -1,5 +1,4 @@
-FROM       fawkes-robotino:2016-f25-kinetic
-MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
+FROM       timn/fawkes-robotino:2016-f25-kinetic
 
 # ROS_DISTRO set by fedora-ros layer
 
