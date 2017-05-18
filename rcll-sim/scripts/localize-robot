@@ -33,7 +33,7 @@ fi
 
 echo "Localizing robot $ROBOT to (${INITIAL_POS[$ROBOT]})"
 
-$FAWKES_DIR/bin/ffset_pose -r $REMOTE -t $TIMEOUT -- ${INITIAL_POS[$ROBOT]}
+$FAWKES_DIR/bin/ffset_pose -f map -r $REMOTE -t $TIMEOUT -- ${INITIAL_POS[$ROBOT]}
 
 sleep infinity
 
