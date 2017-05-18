@@ -1,5 +1,4 @@
-FROM       timn/fedora-ros:f25-kinetic-desktop
-MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
+FROM       timn/fedora-ros:f25-kinetic
 
 # ROS_DISTRO set by fedora-ros layer
 
@@ -31,7 +30,7 @@ RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
 	for p in /opt/patches.fawkes/fawkes-robotino-*.patch; do echo PATCH \$p; patch -p1 -N <\$p; done && \
 	sed -i -e 's/\(agent: rcll2016\/rcll2016\)/# \1/;s/# \(agent: llsf2015\/llsf2015\)/\1/' cfg/conf.d/clips-agent.yaml && \
 	sed -i -e 's/CFLAGS_EXTRA  += -g/CFLAGS_EXTRA += -m64 -mtune=generic -g/g' etc/buildsys/config.mk && \
-	make -j$(nproc) all gui VERBOSE=1 CFLAGS_MTUNE_NATIVE= &&\
+	make -j$(nproc) all gui ${VERBOSE_FLAG} CFLAGS_MTUNE_NATIVE= &&\
 	find . -name '.objs_*' -prune -exec rm -rf {} \; &&\
 	find . -name '.deps_*' -prune -exec rm -rf {} \;"
 
