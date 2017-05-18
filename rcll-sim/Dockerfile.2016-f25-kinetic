@@ -1,5 +1,4 @@
-FROM       fawkes-robotino:2016-f25-kinetic
-MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
+FROM       timn/fawkes-robotino:2016-f25-kinetic
 
 # ROS_DISTRO set by fedora-ros layer
 
@@ -42,4 +41,4 @@ RUN cd /opt && \
 
 RUN mkdir /opt/rcll-sim
 COPY scripts/* /opt/rcll-sim/
-ENTRYPOINT ["/opt/rcll-sim/run-standalone"]
+#ENTRYPOINT ["/opt/rcll-sim/run-standalone"]
