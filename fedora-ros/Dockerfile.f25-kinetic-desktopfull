@@ -1,5 +1,4 @@
-FROM       timn/fedora-ros:f25-kinetic-desktop
-MAINTAINER Tim Niemueller <niemueller@kbsg.rwth-aachen.de> 
+FROM       timn/fedora-ros:f25-kinetic
 
 RUN /bin/bash -c "source /etc/profile; \
   mkdir -p /opt/ros/catkin_ws_${ROS_DISTRO}_desktopfull/src; \
@@ -11,3 +10,4 @@ RUN /bin/bash -c "source /etc/profile; \
     -DCMAKE_BUILD_TYPE=$ROS_BUILD_TYPE; \
   rm -rf *_isolated; \
   "
+
