@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Save some environment variables which might be set from container
+# env but would be overwritten by some statements (from included files)
+SAVE_VARS=${SAVE_VARS:-ROS_MASTER_URI}
+
+for v in $SAVE_VARS; do
+	if [ -n "${!v}" ]; then
+		eval PREENV_$v=${!v}
+	fi
+done
+
+source /opt/ros/$ROS_DISTRO/setup.bash
+
+# Restore some settings from before
+for v in $SAVE_VARS; do
+	VN=PREENV_$v
+	if [ -n "${!VN}" ]; then
+		export $v=${!VN}
+	fi
+done
+
+exec "$@"
