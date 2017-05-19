@@ -1,0 +1,28 @@
+- git:
+    local-name: rosplan
+    uri: https://github.com/timn/ROSPlan.git
+    version: master
+- git:
+    local-name: rosplan_interface_behaviorengine
+    uri: https://github.com/timn/rosplan_interface_behaviorengine.git
+    version: master
+- git:
+    local-name: rosplan_interface_rcllrefbox
+    uri: https://github.com/timn/rosplan_interface_rcllrefbox.git
+    version: master
+- git:
+    local-name: rosplan_initial_situation
+    uri: https://github.com/timn/rosplan_initial_situation.git
+    version: master
+- git:
+    local-name: rosplan_starter_rcll
+    uri: https://github.com/timn/rosplan_starter_rcll.git
+    version: master
+- git:
+    local-name: occupancy_grid_utils
+    uri: https://github.com/clearpathrobotics/occupancy_grid_utils.git
+    version: indigo-devel
+- git:
+    local-name: mongodb_store
+    uri: https://github.com/timn/mongodb_store.git
+    version: hydro-devel
