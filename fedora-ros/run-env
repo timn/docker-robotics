@@ -1,5 +1,9 @@
 #!/bin/bash
 
+set -e
+
+export PYTHONUNBUFFERED=true
+
 # Save some environment variables which might be set from container
 # env but would be overwritten by some statements (from included files)
 SAVE_VARS=${SAVE_VARS:-ROS_MASTER_URI}
@@ -20,4 +24,5 @@ for v in $SAVE_VARS; do
 	fi
 done
 
-exec "$@"
+exec stdbuf -oL -eL "$@"
+
