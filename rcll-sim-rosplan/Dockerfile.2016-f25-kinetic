@@ -29,8 +29,5 @@ RUN /bin/bash -c "source /etc/profile && \
   rm -rf *_isolated; \
   "
 
-RUN /bin/bash -c "source /etc/profile && \
-  source /opt/ros/${ROS_DISTRO}/setup.bash && \
-  mkdir -p /opt/rosplan_kb; \
-  sed -i -e 's|\$(find rosplan_knowledge_base)/common/mongoDB/|/opt/rosplan_kb/|g' \$(rospack find rcll_ros)/launch/rosplan_planning_system.launch; \
-  "
+RUN mkdir -p /opt/rosplan_kb
+
