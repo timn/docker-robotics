@@ -84,7 +84,7 @@ case $COMPONENT in
 		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT:-30} -p SETUP -s RUNNING || exit 34
 
 		# Prematurely end SETUP phase and go straight to production (as per sim-comp rules)
-		sleep ${PREPARE_TIMEOUT:-90}
+		sleep ${PREPARE_TIMEOUT:-92}
 		echo "Switching to production phase"
 		$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT:-30} -p PRODUCTION || exit 35
 
