@@ -24,6 +24,15 @@ for v in $SAVE_VARS; do
   fi
 done
 
+# Check if any URL suffix replacement should happen
+if [ -n "$GZWEB_WS_URL_PORT_SUBST" ]; then
+	pushd /opt/gzweb >/dev/null
+	for f in gz3d/build/gz3d.js gz3d/src/gziface.js http/client/gz3d.js; do
+		sed -i -e "s|:7681|$GZWEB_WS_URL_PORT_SUBST|g" $f;
+	done
+	popd >/dev/null
+fi
+
 # Run the actual gzweb
 /opt/gzweb/start_gzweb.sh
 
