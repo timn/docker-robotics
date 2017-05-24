@@ -1,0 +1,44 @@
+From b3f047e1dde7c8035e12db918764b8f3a2bdad8e Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Tue, 23 May 2017 22:41:10 +0200
+Subject: [PATCH] logging: set line buffering for console and file logs
+
+This results in more timely appearance of the log messages. While this
+has a slighly worse performance, for our log volume we should be fine.
+
+This is particularly helpful when tailing a file or in a cluster
+environment where logs could appear much delayed.
+---
+ src/libs/logging/console.cpp | 2 ++
+ src/libs/logging/file.cpp    | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/src/libs/logging/console.cpp b/src/libs/logging/console.cpp
+index 642d3f2..481c86b 100644
+--- a/src/libs/logging/console.cpp
++++ b/src/libs/logging/console.cpp
+@@ -53,6 +53,8 @@ ConsoleLogger::ConsoleLogger(LogLevel log_level)
+   now_s = (struct ::tm *)malloc(sizeof(struct ::tm));
+   mutex = new Mutex();
+   outf_ = fdopen(dup(STDERR_FILENO), "a");
++  // make buffer line-buffered
++  setvbuf(outf_, NULL, _IOLBF, 0);
+ }
+ 
+ 
+diff --git a/src/libs/logging/file.cpp b/src/libs/logging/file.cpp
+index 47a8441..6d56da0 100644
+--- a/src/libs/logging/file.cpp
++++ b/src/libs/logging/file.cpp
+@@ -57,6 +57,8 @@ FileLogger::FileLogger(const char* filename, LogLevel log_level)
+     throw Exception(errno, "Failed to open log file %s", filename);
+   }
+   log_file = fdopen(fd, "a");
++  // make buffer line-buffered
++  setvbuf(log_file, NULL, _IOLBF, 0);
+ 
+   now_s = (struct tm *)malloc(sizeof(struct tm));
+ 
+-- 
+2.9.3
+
