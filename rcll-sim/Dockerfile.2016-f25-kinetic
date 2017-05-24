@@ -27,10 +27,15 @@ RUN /bin/bash -c "sed -i /opt/fawkes-robotino/cfg/conf.d/gazsim.yaml \
 		"
 
 # Get and compile Gazebo stuff
+# And set to real-time (originally is at 1.2 real-time)
 RUN cd /opt && \
 	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
 	cd gazebo-rcll/plugins && \
-	make -j$(nproc) CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic"
+	make -j$(nproc) CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic" &&\
+	cd /opt/gazebo-rcll &&\
+	sed -i -e 's|<max_step_size>0.004</max_step_size>|<max_step_size>0.00333</max_step_size>|g' \
+		worlds/carologistics/llsf.world \
+		worlds/carologistics/llsf-default.world
 
 # Get and compile RCLL Referee Box
 RUN cd /opt && \
