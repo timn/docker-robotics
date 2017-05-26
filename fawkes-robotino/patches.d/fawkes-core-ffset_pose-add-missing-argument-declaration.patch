@@ -1,7 +1,7 @@
 From f1af54b8812c80bd5c4fa456e9cad0f109b45b5e Mon Sep 17 00:00:00 2001
 From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
 Date: Tue, 23 May 2017 17:32:05 +0200
-Subject: [PATCH] ffset_pose: add missing argument declaration
+Subject: [PATCH 1/2] ffset_pose: add missing argument declaration
 
 frame argument "-f" was not declared.
 ---
@@ -21,6 +21,33 @@ index 371af71..e2f1cac 100644
  
    if ( argp.has_arg("h") ) {
      print_usage(argv[0]);
+-- 
+2.9.3
+
+
+From f73d19639e73b8a9a7d83a56316f3aeb2eeaa953 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Fri, 26 May 2017 12:10:48 +0200
+Subject: [PATCH 2/2] ffset_pose: add delay before retrying to localize
+
+Wait for a second after a failed localize try to avoid thrashing a
+Fawkes instance which just didn't load the AMCL plugin just yet.
+---
+ src/tools/set_pose/ffset_pose.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/tools/set_pose/ffset_pose.cpp b/src/tools/set_pose/ffset_pose.cpp
+index e2f1cac..cc2e69b 100644
+--- a/src/tools/set_pose/ffset_pose.cpp
++++ b/src/tools/set_pose/ffset_pose.cpp
+@@ -173,6 +173,7 @@ main(int argc, char **argv)
+ 		host.c_str(), port, e.what_no_backtrace());
+ 	break;
+       }
++      usleep(1000000);
+     }
+   }
+ 
 -- 
 2.9.3
 
