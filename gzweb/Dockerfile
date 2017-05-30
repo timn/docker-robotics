@@ -30,7 +30,8 @@ RUN apt-get update && apt-get upgrade -q -y \
 # Get and compile Gazebo stuff
 RUN cd /opt && \
 	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
-	cd gazebo-rcll/plugins && \
+	cd gazebo-rcll && \
+  git checkout timn/2016-merge && \
 	make -j$(nproc) CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic"
 
 # clone gzweb
