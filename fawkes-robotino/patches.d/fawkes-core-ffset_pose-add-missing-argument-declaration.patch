@@ -1,7 +1,7 @@
 From f1af54b8812c80bd5c4fa456e9cad0f109b45b5e Mon Sep 17 00:00:00 2001
 From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
 Date: Tue, 23 May 2017 17:32:05 +0200
-Subject: [PATCH 1/2] ffset_pose: add missing argument declaration
+Subject: [PATCH 1/3] ffset_pose: add missing argument declaration
 
 frame argument "-f" was not declared.
 ---
@@ -28,7 +28,7 @@ index 371af71..e2f1cac 100644
 From f73d19639e73b8a9a7d83a56316f3aeb2eeaa953 Mon Sep 17 00:00:00 2001
 From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
 Date: Fri, 26 May 2017 12:10:48 +0200
-Subject: [PATCH 2/2] ffset_pose: add delay before retrying to localize
+Subject: [PATCH 2/3] ffset_pose: add delay before retrying to localize
 
 Wait for a second after a failed localize try to avoid thrashing a
 Fawkes instance which just didn't load the AMCL plugin just yet.
@@ -48,6 +48,41 @@ index e2f1cac..cc2e69b 100644
      }
    }
  
+-- 
+2.9.3
+
+
+From c07291493cb8245f01b1128d76da0f9bde67ddd7 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Thu, 1 Jun 2017 13:26:25 +0200
+Subject: [PATCH 3/3] ffset_pose: indicate error as return value
+
+---
+ src/tools/set_pose/ffset_pose.cpp | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/tools/set_pose/ffset_pose.cpp b/src/tools/set_pose/ffset_pose.cpp
+index cc2e69b..b223217 100644
+--- a/src/tools/set_pose/ffset_pose.cpp
++++ b/src/tools/set_pose/ffset_pose.cpp
+@@ -169,13 +169,13 @@ main(int argc, char **argv)
+       localized = true;
+     } catch (Exception &e) {
+       if ((now - &start) > try_sec) {
+-	fprintf(stderr, "Failed to localize %s:%u: %s\n",
+-		host.c_str(), port, e.what_no_backtrace());
+-	break;
++	      fprintf(stderr, "Failed to localize %s:%u: %s\n",
++	              host.c_str(), port, e.what_no_backtrace());
++	      break;
+       }
+       usleep(1000000);
+     }
+   }
+ 
+-  return 0;
++  return localized ? 0 : -1;
+ }
 -- 
 2.9.3
 
