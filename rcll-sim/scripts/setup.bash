@@ -18,9 +18,16 @@ export GAZEBO_MODEL_PATH=$GAZEBO_RCLL/models
 export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:$GAZEBO_RCLL/models/carologistics
 
 export LLSF_REFBOX_DIR=/opt/llsf-refbox
-export GAZEBO_WORLD_PATH=${GAZEBO_WORLD_PATH:-$GAZEBO_RCLL/worlds/carologistics/llsf.world}
-if [ -n "$USE_DEFAULT_WORLD" ]; then
-	export GAZEBO_WORLD_PATH=$GAZEBO_RCLL/worlds/carologistics/llsf-default.world
+
+if [ -n "$GAZEBO_WORLD" ]; then
+	if [[ "$GAZEBO_WORLD" != /* ]]; then
+		# just the map basename, form full path
+		export GAZEBO_WORLD_PATH=$GAZEBO_RCLL/worlds/carologistics/${GAZEBO_WORLD}.world
+	else
+		export GAZEBO_WORLD_PATH=$GAZEBO_WORLD
+	fi
+else
+	export GAZEBO_WORLD_PATH=${GAZEBO_WORLD_PATH:-$GAZEBO_RCLL/worlds/carologistics/llsf.world}
 fi
 
 source /usr/share/gazebo/setup.sh
