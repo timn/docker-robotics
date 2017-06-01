@@ -1,0 +1,38 @@
+From 8033687220a73756123d40bf46f0bc24ffb9bd72 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Wed, 31 May 2017 11:39:53 +0200
+Subject: [PATCH] gazsim-tag-vision: catch exceptions on publishing transforms
+
+---
+ .../gazebo/gazsim-tag-vision/gazsim_tag_vision_thread.cpp | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/src/plugins/gazebo/gazsim-tag-vision/gazsim_tag_vision_thread.cpp b/src/plugins/gazebo/gazsim-tag-vision/gazsim_tag_vision_thread.cpp
+index d4a3248..e5da211 100644
+--- a/src/plugins/gazebo/gazsim-tag-vision/gazsim_tag_vision_thread.cpp
++++ b/src/plugins/gazebo/gazsim-tag-vision/gazsim_tag_vision_thread.cpp
+@@ -161,11 +161,16 @@ void TagVisionSimThread::loop()
+ 
+       
+       // publish the transform
+-      tf::Transform transform(spose_tag_frame.getRotation(),
+-                              spose_tag_frame.getOrigin());
+-      std::string tag_frame_name = std::string("tag_")+std::to_string(if_index);
+-      tf::StampedTransform stamped_transform(transform,time,frame_name_,tag_frame_name);
+-      tf_publisher->send_transform(stamped_transform);
++      try {
++        tf::Transform transform(spose_tag_frame.getRotation(),
++                                spose_tag_frame.getOrigin());
++        std::string tag_frame_name = std::string("tag_")+std::to_string(if_index);
++        tf::StampedTransform stamped_transform(transform,time,frame_name_,tag_frame_name);
++        tf_publisher->send_transform(stamped_transform);
++      } catch (fawkes::Exception &e) {
++        logger->log_warn(name(), "Failed to send transform, exception follows");
++        logger->log_warn(name(), e);
++      }
+     }
+     //clear tags which became unvisibe and count visible tags
+     int number_found_tags = 0;
+-- 
+2.9.3
+
