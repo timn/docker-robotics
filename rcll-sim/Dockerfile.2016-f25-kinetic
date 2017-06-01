@@ -64,8 +64,8 @@ RUN cd /opt && \
 RUN cd /opt && \
 	git clone https://git.fawkesrobotics.org/llsf-refbox.git && \
 	cd llsf-refbox && \
-	make -j$(nproc) all gui
-
+	make -j$(nproc) all gui && \
+        sed -i -e 's|# - !ignore-missing conf.d/|- !ignore-missing conf.d/|g' cfg/config.yaml
 
 RUN mkdir /opt/rcll-sim
 COPY scripts/* /opt/rcll-sim/
