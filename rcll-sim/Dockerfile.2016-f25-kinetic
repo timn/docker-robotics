@@ -4,6 +4,17 @@ FROM       timn/fawkes-robotino:2016-f25-kinetic
 
 RUN dnf install -y gnome-terminal mesa-dri-drivers jq && dnf clean all
 
+# Perform the following substitutions in config files:
+# * general gazebo config 
+#   - Fawkes Robotino path
+#   - refbox host (use cluster DNS name)
+#   - peer addresses (use cluster DNS names)
+#   - peer send and receive ports (anticipate maximum possible set of peers)
+# * per-robot host configurations
+#   - Set appropriate peer address and ports (see above)
+#   - replace magenta team name, robot name and number (CLIPS-agent only)
+#     (the same team will not play against itself, hence set Carologistics to
+#      use the same team name, and robot name and number, with both colors)
 RUN /bin/bash -c "sed -i /opt/fawkes-robotino/cfg/conf.d/gazsim.yaml \
     -e 's/~\/fawkes-robotino/\/opt\/fawkes-robotino/g' \
     -e 's/refbox-host: .*$/refbox-host: refbox/' \
@@ -22,7 +33,14 @@ RUN /bin/bash -c "sed -i /opt/fawkes-robotino/cfg/conf.d/gazsim.yaml \
 						-e \"s/cyan-recv-port: .*\$/cyan-recv-port: \$(expr 4470 + \$i)/\" \
 						-e \"s/cyan-send-port: .*\$/cyan-send-port: \$(expr 4490 + \$i)/\" \
 						-e \"s/magenta-recv-port: .*\$/magenta-recv-port: \$(expr 4510 + \$i)/\" \
-						-e \"s/magenta-send-port: .*\$/magenta-send-port: \$(expr 4530 + \$i)/\"; \
+						-e \"s/magenta-send-port: .*\$/magenta-send-port: \$(expr 4530 + \$i)/\" \
+						-e \"s/team-name: Carologistics-2/team-name: Carologistics/g\" \
+						-e \"s/robot-name: R-4/robot-name: R-1/g\" \
+						-e \"s/robot-name: R-5/robot-name: R-2/g\" \
+						-e \"s/robot-name: R-6/robot-name: R-3/g\" \
+						-e \"s/robot-number: 4/robot-number: 1/g\" \
+						-e \"s/robot-number: 5/robot-number: 2/g\" \
+						-e \"s/robot-number: 6/robot-number: 3/g\"; \
 		done \
 		"
 
