@@ -33,8 +33,10 @@ fi
 source /usr/share/gazebo/setup.sh
 source /opt/ros/$ROS_DISTRO/setup.bash
 
-mkdir -p /run/dbus
-dbus-daemon --system --fork
+if [ ! -e /run/dbus/messagebus.pid ]; then
+	mkdir -p /run/dbus
+	dbus-daemon --system --fork
+fi
 
 # Restore some settings from before
 for v in $SAVE_VARS; do
