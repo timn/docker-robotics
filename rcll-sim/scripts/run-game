@@ -1,0 +1,126 @@
+#!/bin/bash
+
+set -e
+
+SCRIPT_PATH=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+source $SCRIPT_PATH/setup.bash
+
+if [ -e /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
+	KUBERNETES="true"
+	KUBERNETES_CACRT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+	KUBERNETES_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+fi
+
+if [ -z "$TEAM_CYAN" ]; then
+	>&2 echo Cyan team color not set, aborting
+	exit 31
+fi
+if [ -z "$TEAM_MAGENTA" ]; then
+	>&2 echo Magenta team color not set, aborting
+	exit 31
+fi
+if [ -z "$JOB_NAME" ]; then
+	>&2 echo Job name not set, aborting
+	exit 31
+fi
+REFBOX_REMOTE="-r ${REFBOX_HOST:-refbox}:${REFBOX_PORT:-4444}"
+
+for v in URI RS HOST PORT RS_SRV DATABASE COLLECTION QUERY MODIFICATION; do
+	ev="REFBOX_MONGODB_$v"
+	if [ -n "${!ev}" ]; then
+		export INPUT_MONGODB_$v="${!ev}"
+	fi
+	ev="CLUSTER_MONGODB_$v"
+	if [ -n "${!ev}" ]; then
+		export OUTPUT_MONGODB_$v="${!ev}"
+	fi
+done
+
+# Setup team names
+echo "Setup team names (cyan: $TEAM_CYAN  magenta: $TEAM_MAGENTA)"
+$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_SETUP_TIMEOUT:-120} -c $TEAM_CYAN -m $TEAM_MAGENTA || exit 32
+
+if [ -n "$KUBERNETES" ]; then
+	echo "Running in Kubernetes, waiting for robot pods (${ROBOTS[*]})"
+	# Wait for the expected robot pods
+	if [ -n "$ROBOTS" ]; then
+		CLAUSE=${ROBOTS// /%2C}
+		TRIES=0
+		N=0
+		declare -a ROBOTS=($ROBOTS)
+		while (( $N != ${#ROBOTS[@]} )); do
+			# Debug to read in log
+			URL="https://kubernetes.default/api/v1/pods?labelSelector=app%3dfawkes,robot+in+%28${CLAUSE}%29"
+			echo "*** Getting endpoints ***"
+			echo "URL: $URL"
+			RESULT=$(curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL")
+			#echo
+			#echo "************************************"
+			#echo "*** Number of detected endpoints ***"
+			N=$(jq -r '.items | map(select(.status.phase=="Running")) | length' <<< "$RESULT")
+			echo "N: $N"
+
+			if [ -z "$N" ]; then N=0; fi
+			(( TRIES=TRIES+1 ))
+			if (( $N != ${#ROBOTS[@]} )); then
+				if (( $TRIES >= 60 )); then
+					>&2 echo "Waited for $TRIES tries, aborting"
+					exit 33
+				fi
+				echo "Cannot (yet) reach $r, retrying ($TRIES tries so far)"
+				sleep 5
+			fi
+		done
+	fi
+else
+	>&2 echo "WARNING: Not running inside Kubernetes"
+	>&2 echo "         Cannot determine robot pods, just waiting 30 sec"
+	sleep 30
+fi
+
+# Ok, all good, run game
+echo "Starting game"
+$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT:-30} -s RUNNING || exit 34
+
+# Prematurely end SETUP phase and go straight to production (as per sim-comp rules)
+sleep ${PREPARE_TIMEOUT:-92}
+echo "Switching to production phase"
+$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT:-30} -p PRODUCTION || exit 35
+
+# Wait production time, plus overtime, plus some
+echo "Waiting for RCLL game to finish"
+$LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT:-30} -W${PRODUCTION_TIMEOUT:-1230} -p POST_GAME
+
+echo "Game Over"
+
+echo "Transferring Game Report"
+$SCRIPT_PATH/mongodb-transfer-document
+
+if [ -z "$REFBOX_MONGODB_HOST" ] || [ -z "$REFBOX_MONGODB_PORT" ] || [ -z "$REFBOX_MONGODB_DATABASE" ]; then
+	>&2 echo "WARNING: for database export refbox DB must be given as host/port/database, not URI, or RS SRV"
+	echo "Simulation run completed (score not available without MongoDB)"
+else
+	if [ "$REFBOX_MONGODB_DO_EXPORT" == "true" ]; then
+		echo "Exporting Database"
+		time $SCRIPT_PATH/mongodb-export-db \
+				 $REFBOX_MONGODB_HOST:$REFBOX_MONGODB_PORT $REFBOX_MONGODB_DATABASE /data/db-export/$JOB_NAME
+	fi
+
+	SCORE_DOC=$(mongo --host $REFBOX_MONGODB_HOST:$REFBOX_MONGODB_PORT $REFBOX_MONGODB_DATABASE \
+										--quiet --eval "JSON.stringify(db.game_report.findOne({}, {'total-points': 1}))")
+	SCORE_CYAN=$(jq -r '."total-points"[0].floatApprox' <<< "$SCORE_DOC")
+	SCORE_MAGENTA=$(jq -r '."total-points"[1].floatApprox' <<< "$SCORE_DOC")
+
+	echo "************************************************************************"
+	echo
+	echo "Simulation run completed"
+	echo
+	echo "Cyan:    $TEAM_CYAN"
+	echo "Magenta: $TEAM_MAGENTA"
+	echo "Score:   $SCORE_CYAN:$SCORE_MAGENTA"
+	echo "Job:     $JOB_NAME"
+	echo
+	echo "************************************************************************"
+fi
+
+exit 0

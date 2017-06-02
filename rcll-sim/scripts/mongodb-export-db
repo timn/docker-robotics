@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -e
+
+if [ ! $1 ]; then
+	echo " Example of use: $0 database_name <uri> <dir>"
+	exit 1
+fi
+HOSTPORT=$1
+DB=$2
+DIR=$3
+if [ -z "$HOSTPORT" ]; then
+  >&2 echo No host or port given
+  exit 1
+fi
+if [ -z "$DB" ]; then
+  >&2 echo No database given
+	exit 1
+fi
+if [ -z "$DIR" ]; then
+  >&2 echo No output directory given
+	exit 1
+fi
+
+echo "Export $DB from $HOSTPORT to $DIR"
+
+mkdir -p $DIR
+
+COLS=$(mongo --host $HOSTPORT --quiet --eval "db.getCollectionNames()" $DB | jq -r '.[]')
+for c in $COLS; do
+	mongoexport --host $HOSTPORT -d $DB -c $c | xz > $DIR/${c}.json.xz
+done
+
+TOTAL_SIZE=$(du -hs $DIR | awk '{ print $1 }')
+echo "Export complete (dir size $TOTAL_SIZE)"
+
+exit 0

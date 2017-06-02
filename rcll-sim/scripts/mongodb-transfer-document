@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+
+import pymongo
+from pymongo import ReturnDocument
+from pymongo.errors import ConnectionFailure
+import dns.resolver
+
+import os
+import json
+
+class MongoDBConfig(object):
+	def __init__(self, prefix):
+		self.uri = self.value(prefix + "MONGODB_URI")
+		self.rs = self.value(prefix + "MONGODB_RS")
+		self.host = self.value(prefix + "MONGODB_HOST")
+		self.port = self.value(prefix + "MONGODB_PORT")
+		self.rs_srv = self.value(prefix + "MONGODB_RS_SRV")
+		self.database = self.value(prefix + "MONGODB_DATABASE")
+		self.collection = self.value(prefix + "MONGODB_COLLECTION")
+		self.query = self.value(prefix + "MONGODB_QUERY")
+		self.modification = self.value(prefix + "MONGODB_MODIFICATION")
+
+		if self.port is not None:
+			self.port = int(self.port)
+
+	def value(self, key, default=None):
+		if key in os.environ:
+			return os.environ[key]
+		else:
+			return default
+
+class MongoDBConnection(object):
+	def	__init__(self, config):
+		self.database_name = config.database
+		self.collection_name = config.collection
+
+		if self.collection_name is None:
+			raise Exception("Collection name may not be empty")
+
+		if config.host is not None and config.port is not None:
+			self.client = pymongo.MongoClient(config.host, config.port, replicaset=config.rs)
+		elif config.rs_srv is not None:
+			if self.database_name is None:
+				raise Exception("Database name not given with RS SRV config")
+			srv_records = dns.resolver.query(config.rs_srv, 'SRV')
+			uri="mongodb://%s/%s" \
+			     % (','.join([str(srv.target) + ":" + str(srv.port) for srv in srv_records]), self.database_name)
+			if config.rs is not None:
+				uri = uri + "?replicaSet=" + config.rs
+
+			#print("Connecting to %s" % uri)
+			self.client = pymongo.MongoClient(uri)
+
+		elif config.uri is not None:
+			self.client = pymongo.MongoClient(config.uri)		
+		else:
+			raise ValueError("No valid connection parameter passed")
+
+		# The following throws on connection failure
+		# The ismaster command is cheap and does not require auth.
+		self.client.admin.command('ismaster')
+
+		try:
+			self.db = self.client.get_default_database()
+		except:
+			if self.database_name is None:
+				raise Exception("Database may not be empty if not specified in URI")
+			self.db = self.client[self.database_name]
+		if self.db is None:
+			raise Exception("Cannot determine database")
+		self.collection = self.db[self.collection_name]
+
+class MongoDBDocumentTransfer(object):
+	def __init__(self):
+		self.input_config  = MongoDBConfig("INPUT_")
+		self.output_config = MongoDBConfig("OUTPUT_")
+
+		self.input_connection  = MongoDBConnection(self.input_config)
+		self.output_connection = MongoDBConnection(self.output_config)
+
+		print("Input Connections:  %s" % list(self.input_connection.client.nodes))
+		print("Output Connections: %s" % list(self.output_connection.client.nodes))
+
+	def transfer(self):
+		print("Input Collection:  %s" % self.input_connection.collection_name)
+		print("Output Collection: %s" % self.output_connection.collection_name)
+		print("Input Query: %s" % self.input_config.query)
+		doc = self.input_connection.collection.find_one(self.input_config.query)
+		if doc is None:
+			raise Exception("Query " + self.input_config.query + " did not return any document")
+
+		if self.output_config.modification is not None:
+			print("Output Modification: '%s'" % self.output_config.modification)
+			mod = json.loads(self.output_config.modification)
+			if type(mod) != type({}):
+				print("Invalid modification, must be a dict")
+			else:
+				for key, value in mod.items():
+					doc[key] = value
+
+		doc.pop("_id")
+		self.output_connection.collection.insert_one(doc)
+
+if __name__ == '__main__':
+	t = MongoDBDocumentTransfer()
+	t.transfer()
