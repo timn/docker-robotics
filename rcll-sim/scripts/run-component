@@ -106,7 +106,7 @@ case $COMPONENT in
 		;;
 
 	roscore)
-		roscore || exit 51
+		stdbuf -oL -eL roscore || exit 51
 		;;
 
 	roslaunch)
@@ -119,7 +119,7 @@ case $COMPONENT in
 			exit 61
 		fi
 		echo "Launching $ROS_PACKAGE $ROS_LAUNCH_FILE"
-		roslaunch --screen --wait $ROS_PACKAGE $ROS_LAUNCH_FILE || exit 62
+		stdbuf -oL -eL roslaunch --screen --wait --skip-log-check --disable-title $ROS_PACKAGE $ROS_LAUNCH_FILE || exit 62
 		;;
 
 	*)
