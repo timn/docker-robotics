@@ -102,10 +102,11 @@ if [ -z "$REFBOX_MONGODB_HOST" ] || [ -z "$REFBOX_MONGODB_PORT" ] || [ -z "$REFB
 	>&2 echo "WARNING: for database export refbox DB must be given as host/port/database, not URI, or RS SRV"
 	echo "Simulation run completed (score not available without MongoDB)"
 else
-	if [ "$REFBOX_MONGODB_DO_EXPORT" == "true" ]; then
+	if [ "${REFBOX_MONGODB_DO_EXPORT,,}" == "true" ]; then
 		echo "Exporting Database"
+		EXPORT_DIR=${JOB_NAME//:/_}
 		time $SCRIPT_PATH/mongodb-export-db \
-				 $REFBOX_MONGODB_HOST:$REFBOX_MONGODB_PORT $REFBOX_MONGODB_DATABASE /data/db-export/$JOB_NAME
+				 $REFBOX_MONGODB_HOST:$REFBOX_MONGODB_PORT $REFBOX_MONGODB_DATABASE /data/db-export/$EXPORT_DIR
 	fi
 
 	SCORE_DOC=$(mongo --host $REFBOX_MONGODB_HOST:$REFBOX_MONGODB_PORT $REFBOX_MONGODB_DATABASE \
