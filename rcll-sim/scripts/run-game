@@ -9,6 +9,11 @@ if [ -e /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
 	KUBERNETES="true"
 	KUBERNETES_CACRT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 	KUBERNETES_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+	if [ -z "$KUBERNETES_NAMESPACE" ]; then
+		>&2 echo KUBERNETES_NAMESPACE not set
+		exit 31
+	fi
+		
 fi
 
 if [ -z "$TEAM_CYAN" ]; then
@@ -48,26 +53,23 @@ if [ -n "$KUBERNETES" ]; then
 		TRIES=0
 		N=0
 		declare -a ROBOTS=($ROBOTS)
+		URL="https://kubernetes.default/api/v1/namespaces/$KUBERNETES_NAMESPACE/pods?labelSelector=app%3dfawkes,robot+in+%28${CLAUSE}%29"
+		echo "URL: $URL"
 		while (( $N != ${#ROBOTS[@]} )); do
 			# Debug to read in log
-			URL="https://kubernetes.default/api/v1/pods?labelSelector=app%3dfawkes,robot+in+%28${CLAUSE}%29"
-			echo "*** Getting endpoints ***"
-			echo "URL: $URL"
 			RESULT=$(curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL")
-			#echo
-			#echo "************************************"
-			#echo "*** Number of detected endpoints ***"
 			N=$(jq -r '.items | map(select(.status.phase=="Running")) | length' <<< "$RESULT")
-			echo "N: $N"
 
 			if [ -z "$N" ]; then N=0; fi
 			(( TRIES=TRIES+1 ))
+
+			echo "Robots found: $N/${#ROBOTS[@]} ($TRIES tries)"
+
 			if (( $N != ${#ROBOTS[@]} )); then
 				if (( $TRIES >= 60 )); then
 					>&2 echo "Waited for $TRIES tries, aborting"
 					exit 33
 				fi
-				echo "Cannot (yet) reach $r, retrying ($TRIES tries so far)"
 				sleep 5
 			fi
 		done
