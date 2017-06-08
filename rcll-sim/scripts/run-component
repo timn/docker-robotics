@@ -26,7 +26,7 @@ case $COMPONENT in
 
 	fawkes)
 		if [ -z "$META_PLUGIN" ]; then
-			2>&1 echo "Meta plugin not set, aborting"
+			>&2 echo "Meta plugin not set, aborting"
 			exit 41
 		fi
 		LL=${LOG_LEVEL:-info}
@@ -40,11 +40,11 @@ case $COMPONENT in
 
 	roslaunch)
 		if [ -z "$ROS_PACKAGE" ]; then
-			2>&1 echo "ROS package not set, aborting"
+			>&2 echo "ROS package not set, aborting"
 			exit 61
 		fi
 		if [ -z "$ROS_LAUNCH_FILE" ]; then
-			2>&1 echo "Launch file not set, aborting"
+			>&2 echo "Launch file not set, aborting"
 			exit 61
 		fi
 		echo "Launching $ROS_PACKAGE $ROS_LAUNCH_FILE"
