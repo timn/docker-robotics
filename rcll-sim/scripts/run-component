@@ -13,13 +13,11 @@ case $COMPONENT in
 	gazebo)
 		echo "Running gzserver"
 		gzserver $GAZEBO_WORLD_PATH || exit 11
-		echo "*** TERMINATED SUCCESSFULLY ***"
 		;;
 
 	refbox)
 		echo "Running llsf-refbox"
 		$LLSF_REFBOX_DIR/bin/llsf-refbox || exit 21
-		echo "*** TERMINATED SUCCESSFULLY ***"
 		;;
 
 	run-game)
@@ -59,4 +57,5 @@ case $COMPONENT in
     ;;
 esac
 
+echo "*** TERMINATED SUCCESSFULLY ***"
 exit 0
