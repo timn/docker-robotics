@@ -16,8 +16,33 @@ case $COMPONENT in
 		;;
 
 	refbox)
-		echo "Running llsf-refbox"
-		$LLSF_REFBOX_DIR/bin/llsf-refbox || exit 21
+		if [ -n "$REFBOX_MONGODB_WAIT" ]; then
+			if [ -z "$REFBOX_MONGODB_HOST" ]; then
+				>&2 echo "REFBOX_MONGODB_HOST not set"
+				exit 21
+			fi
+			if [ -z "$REFBOX_MONGODB_PORT" ]; then
+				>&2 echo "REFBOX_MONGODB_PORT not set"
+				exit 21
+			fi
+			echo "Waiting for MongoDB"
+			MAX_TRIES=${REFBOX_MONGODB_WAIT_MAX_TRIES:-30}
+			PERIOD=${REFBOX_MONGODB_WAIT_PERIOD:-1}
+			TRIES=0
+			while ! curl -f -s "http://$REFBOX_MONGODB_HOST:$REFBOX_MONGODB_PORT" >/dev/null; do
+				(( TRIES=TRIES+1 ))
+				if (( $TRIES >= $MAX_TRIES )); then
+					>&2 echo "Could not reach MongoDB after $TRIES tries, giving up"
+					exit 21
+				else
+					sleep $PERIOD
+				fi
+			done
+			(( TRIES=TRIES+1 ))
+			echo "MongoDB reachable after $TRIES/$MAX_TRIES tries"
+		fi
+		echo "Running Referee Box"
+		$LLSF_REFBOX_DIR/bin/llsf-refbox || exit 22
 		;;
 
 	run-game)
