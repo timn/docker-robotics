@@ -30,6 +30,10 @@ if [ -n "$GZWEB_WS_URL_PORT_SUBST" ]; then
 	for f in gz3d/build/gz3d.js gz3d/src/gziface.js http/client/gz3d.js; do
 		sed -i -e "s|:7681|$GZWEB_WS_URL_PORT_SUBST|g" $f;
 	done
+	sed -i gzbridge/ws_server.js \
+	  -e 's/setPoseMsgFilterMinimumAge(0.02)/setPoseMsgFilterMinimumAge(0.25)/g' \
+	  -e 's/setPoseMsgFilterMinimumDistanceSquared(0.00001)/setPoseMsgFilterMinimumDistanceSquared(0.01)/g' \
+	  -e 's/setPoseMsgFilterMinimumQuaternionSquared(0.00001)/setPoseMsgFilterMinimumQuaternionSquared(0.01)/g'
 	popd >/dev/null
 fi
 
