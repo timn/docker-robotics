@@ -1,0 +1,47 @@
+#!/bin/bash
+
+BASE_URL=https://files.fawkesrobotics.org/releases/
+ARCHIVE=
+URL=
+CHANGE_DIR=
+
+OPTS=$(getopt -o "C:" -l "url:,archive:" -- "$@")
+if [ $? != 0 ]
+then
+    echo "Failed to parse parameters"
+    exit 1
+fi
+
+eval set -- "$OPTS"
+while true; do
+	OPTION=$1
+	OPTARG=$2
+	case $OPTION in
+		-C)                    CHANGE_DIR=$OPTARG;;
+		--url)                 URL=$OPTARG;;
+		--)                    shift; break;;
+  esac
+	shift
+done
+
+ARCHIVE=$1
+
+if [ -z "$URL" ]; then
+	if [ -z "$ARCHIVE" ]; then
+		>&2 echo Neither URL nor archive given
+		exit 2
+	fi
+	URL=$BASE_URL/$ARCHIVE
+else
+	ARCHIVE=${U##*/}
+fi
+
+if [ -n "$CHANGE_DIR" ]; then pushd $CHANGE_DIR >/dev/null; fi
+
+echo Fetching $URL
+curl -O $URL
+
+echo Unpacking $ARCHIVE
+tar xf $ARCHIVE
+
+if [ -n "$CHANGE_DIR" ]; then popd >/dev/null; fi

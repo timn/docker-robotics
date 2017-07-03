@@ -1,0 +1,30 @@
+#!/bin/bash
+
+CHANGE_DIR=
+
+OPTS=$(getopt -o "C:" -- "$@")
+if [ $? != 0 ]
+then
+    echo "Failed to parse parameters"
+    exit 1
+fi
+
+eval set -- "$OPTS"
+while true; do
+  OPTION=$1
+  OPTARG=$2
+  case $OPTION in
+    -C)                    CHANGE_DIR=$OPTARG;;
+    --)                    shift; break;;
+  esac
+  shift
+done
+
+if [ -n "$CHANGE_DIR" ]; then pushd $CHANGE_DIR >/dev/null; fi
+
+# Fawkes Robotino
+echo "Setting generic build flags"
+sed -i -e 's/CFLAGS_EXTRA  += -g/CFLAGS_EXTRA += -m64 -mtune=generic -g/g' etc/buildsys/config.mk
+
+if [ -n "$CHANGE_DIR" ]; then popd >/dev/null; fi
+

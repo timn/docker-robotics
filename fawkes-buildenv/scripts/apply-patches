@@ -1,0 +1,39 @@
+#!/bin/bash
+
+PATCHES=()
+CHANGE_DIR=
+PATCH_DIR=
+PATCH_STRIP=
+
+OPTS=$(getopt -o "C:d:p:" -- "$@")
+if [ $? != 0 ]
+then
+    echo "Failed to parse parameters"
+    exit 1
+fi
+
+eval set -- "$OPTS"
+while true; do
+  OPTION=$1
+  OPTARG=$2
+  case $OPTION in
+    -C)                    CHANGE_DIR=$OPTARG;;
+		-p)                    PATCH_STRIP=$OPTARG;;
+		-d)                    PATCH_DIR=$OPTARG;;
+    --)                    shift; break;;
+  esac
+  shift
+done
+
+for a in "$@"; do
+	PATCHES+=("$a")
+done
+
+if [ -n "$CHANGE_DIR" ]; then pushd $CHANGE_DIR >/dev/null; fi
+
+for p in "${PATCHES[@]}"; do
+	echo "Applying $p"
+	patch ${PATCH_DIR:+-d $PATCH_DIR} ${PATCH_STRIP:+-p$PATCH_STRIP} -N <$p
+done
+
+if [ -n "$CHANGE_DIR" ]; then popd >/dev/null; fi

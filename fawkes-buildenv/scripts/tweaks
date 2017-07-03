@@ -1,0 +1,90 @@
+#!/bin/bash
+
+set -e
+
+TWEAKS=()
+CHANGE_DIR=
+PATCH_DIR=
+PATCH_STRIP=
+
+OPTS=$(getopt -o "C:" -- "$@")
+if [ $? != 0 ]
+then
+    echo "Failed to parse parameters"
+    exit 1
+fi
+
+eval set -- "$OPTS"
+while true; do
+  OPTION=$1
+  OPTARG=$2
+  case $OPTION in
+    -C)                    CHANGE_DIR=$OPTARG;;
+    --)                    shift; break;;
+  esac
+  shift
+done
+
+for a in "$@"; do
+	TWEAKS+=("$a")
+done
+
+if [ -n "$CHANGE_DIR" ]; then pushd $CHANGE_DIR >/dev/null; fi
+
+for t in "${TWEAKS[@]}"; do
+	echo "Applying tweak $t"
+	case $t in
+		robotino-agent-2015)
+			echo "Configuring CLIPS agent for RCLL 2015 game"
+			sed -i -e 's/\(agent: rcll2016\/rcll2016\)/# \1/;s/# \(agent: llsf2015\/llsf2015\)/\1/' cfg/conf.d/clips-agent.yaml
+			;;
+		rcll-sim-cluster)
+			echo "Configuring RCLL sim cluster"
+			# Perform the following substitutions in config files:
+			# * general gazebo config 
+			#   - Fawkes Robotino path
+			#   - refbox host (use cluster DNS name)
+			#   - peer addresses (use cluster DNS names)
+			#   - peer send and receive ports (anticipate maximum possible set of peers)
+			# * per-robot host configurations
+			#   - Set appropriate peer address and ports (see above)
+			#   - replace magenta team name, robot name and number (CLIPS-agent only)
+			#     (the same team will not play against itself, hence set Carologistics to
+			#      use the same team name, and robot name and number, with both colors)
+			sed -i cfg/conf.d/gazsim.yaml \
+				-e 's/~\/fawkes-robotino/\/opt\/fawkes-robotino/g' \
+				-e 's/refbox-host: .*$/refbox-host: refbox/' \
+				-e 's/addresses: .*$/addresses: ["refbox", "robot-c1", "robot-c2", "robot-c3", "robot-m1", "robot-m2", "robot-m3", "agent-c1", "agent-c2", "agent-c3", "agent-m1", "agent-m2", "agent-m3"]/' \
+				-e "s/send-ports: .*$/send-ports: [4445, $(seq -s ', ' 4411 4422)]/" \
+				-e "s/recv-ports: .*$/recv-ports: [4444, $(seq -s ', ' 4451 4462)]/" \
+				-e "s/send-ports-crypto1: .*$/send-ports-crypto1: [4446, $(seq -s ', ' 4471 4482)]/" \
+				-e "s/recv-ports-crypto1: .*$/recv-ports-crypto1: [4441, $(seq -s ', ' 4491 4502)]/" \
+				-e "s/send-ports-crypto2: .*$/send-ports-crypto2: [4447, $(seq -s ', ' 4511 4522)]/" \
+				-e "s/recv-ports-crypto2: .*$/recv-ports-crypto2: [4442, $(seq -s ', ' 4531 4542)]/"
+
+			for i in $(seq 1 6); do
+				sed -i cfg/gazsim-configurations/default/host_robotino_$i.yaml \
+					-e "s/peer-address: .*$/peer-address: refbox/" \
+					-e "s/peer-recv-port: .*$/peer-recv-port: $(expr 4410 + $i)/" \
+					-e "s/peer-send-port: .*$/peer-send-port: $(expr 4450 + $i)/" \
+					-e "s/cyan-recv-port: .*$/cyan-recv-port: $(expr 4470 + $i)/" \
+					-e "s/cyan-send-port: .*$/cyan-send-port: $(expr 4490 + $i)/" \
+					-e "s/magenta-recv-port: .*$/magenta-recv-port: $(expr 4510 + $i)/" \
+					-e "s/magenta-send-port: .*$/magenta-send-port: $(expr 4530 + $i)/" \
+          -e "s/team-name: Carologistics-2/team-name: Carologistics/g" \
+          -e "s/robot-name: R-4/robot-name: R-1/g" \
+          -e "s/robot-name: R-5/robot-name: R-2/g" \
+          -e "s/robot-name: R-6/robot-name: R-3/g" \
+          -e "s/robot-number: 4/robot-number: 1/g" \
+          -e "s/robot-number: 5/robot-number: 2/g" \
+          -e "s/robot-number: 6/robot-number: 3/g"
+			done
+			;;
+
+		*)
+			>&2 echo "Unknown Tweak $t"
+			;;
+	esac
+done
+
+if [ -n "$CHANGE_DIR" ]; then popd >/dev/null; fi
