@@ -10,10 +10,10 @@ This image is based on the Fedora Robotics Image. A build downloads and installs
 ### Fawkes Robotino Image
 This image is based on the Fedora ROS image. It adds all software required to run the [RoboCup Logistics League Simulation](https://www.fawkesrobotics.org/projects/llsf-sim/). It has been tested to run on Fedora 25 and Ubuntu 14.04. You can run this image with:
 ```
-xhost +local:
-docker run -it -v /tmp/.X11-unix:/tmp/.X11-unix \
+xhost local:root
+docker run --rm -it -v /tmp/.X11-unix:/tmp/.X11-unix \
            -e DISPLAY=unix$DISPLAY --name rcll-sim \
-       timn/fawkes-robotino:2016-f25-kinetic
+       timn/rcll-sim:2016-f25-kinetic-standalone
 ```
 
 ### Note
