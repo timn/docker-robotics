@@ -1,0 +1,21 @@
+FROM       timn/fawkes-robotino:2016-f25-kinetic-standalone
+
+RUN dnf install -y gnome-terminal mongodb mongo-tools && dnf clean all
+
+# Get and compile Gazebo stuff
+RUN cd /opt && \
+	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
+  cd gazebo-rcll && \
+  git checkout timn/2016-merge && \
+	make -j$(nproc) CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic"
+
+# Get and compile RCLL Referee Box
+RUN cd /opt && \
+	git clone https://git.fawkesrobotics.org/llsf-refbox.git && \
+	cd llsf-refbox && \
+	make -j$(nproc) all gui && \
+	sed -i -e 's|# - !ignore-missing conf.d/|- !ignore-missing conf.d/|g' cfg/config.yaml
+
+RUN mkdir /opt/rcll-sim
+COPY scripts/* /opt/rcll-sim/
+ENTRYPOINT ["/opt/rcll-sim/run-standalone"]
