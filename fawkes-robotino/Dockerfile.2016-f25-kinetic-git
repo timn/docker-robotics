@@ -1,0 +1,24 @@
+FROM       timn/fawkes-buildenv:f25-kinetic
+
+ARG  SSH_AUTH_SOCK=/ssh-agent
+ARG  GIT_HEAD=master
+ARG  GIT_CORE_HEAD
+
+RUN mkdir -p /opt/patches.fawkes
+COPY patches.d/* /opt/patches.fawkes/
+
+# Get and compile Fawkes
+RUN /bin/bash -c "if [ -z \"$SSH_AUTH_SOCK\" ]; then >&2 echo SSH_AUTH_SOCK not set; exit 1; fi; \
+	if [ ! -e \"$SSH_AUTH_SOCK\" ]; then \
+		>&2 echo \"SSH auth socket $SSH_AUTH_SOCK does not exist. Forgot build volume?\"; \
+		exit 1; \
+	fi; \
+	source /opt/fawkes-buildenv/setup.bash && \
+	/opt/fawkes-buildenv/get-fawkes-from-git -C /opt --repo fawkes-robotino \
+    --branch $GIT_HEAD \${GIT_CORE_HEAD:+--core-head $GIT_CORE_HEAD} &&\
+	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 -d fawkes /opt/patches.fawkes/fawkes-core-*.patch &&\
+	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 /opt/patches.fawkes/fawkes-robotino-*.patch &&\
+	/opt/fawkes-buildenv/generic-build-flags -C /opt/fawkes-robotino &&\
+	/opt/fawkes-buildenv/build -C /opt/fawkes-robotino \
+  "
+
