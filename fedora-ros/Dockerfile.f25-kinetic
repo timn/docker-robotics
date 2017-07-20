@@ -18,6 +18,7 @@ RUN /bin/bash -c "source /etc/profile; \
     -DCMAKE_BUILD_TYPE=$ROS_BUILD_TYPE; \
   rm -rf *_isolated; \
 	echo \"source /opt/ros/$ROS_DISTRO/setup.bash\" > /etc/profile.d/ros.sh; \
+  sed -i -e 's/_TIMEOUT_MASTER_START = 10.0/_TIMEOUT_MASTER_START = 120.0/' /opt/ros/${ROS_DISTRO}/lib/python2.7/site-packages/roslaunch/launch.py; \
   "
 
 # Disable precompiled headers for OpenCV or it fails building
