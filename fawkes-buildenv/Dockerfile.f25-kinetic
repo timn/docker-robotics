@@ -15,6 +15,7 @@ RUN /bin/bash -c "source /etc/profile && \
   rm -rf *_isolated; \
   "
 
-RUN mkdir -p /opt/fawkes-buildenv
-COPY scripts/* /opt/fawkes-buildenv/
+RUN mkdir -p /opt/fawkes-buildenv /opt/fawkes-buildenv/patches.d /opt/fawkes-runenv
+COPY scripts.build.d/* /opt/fawkes-buildenv/
+COPY patches.d/* /opt/fawkes-buildenv/patches.d/
 
