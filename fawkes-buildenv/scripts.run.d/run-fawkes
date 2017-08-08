@@ -1,0 +1,55 @@
+#!/bin/bash
+
+set -e
+source /etc/profile
+
+SCRIPT_PATH=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+
+# Save some environment variables which might be set from container
+# env but would be overwritten by some statements (from included files)
+SAVE_VARS="ROS_MASTER_URI"
+
+for v in $SAVE_VARS; do
+	if [ -n "${!v}" ]; then
+		eval PREENV_$v=${!v}
+	fi
+done
+
+export FAWKES_DIR=/opt/fawkes-robotino
+if [ -e /usr/share/gazebo/setup.sh ]; then
+	source /usr/share/gazebo/setup.sh
+fi
+if [ -e /opt/ros/$ROS_DISTRO/setup.bash ]; then
+	source /opt/ros/$ROS_DISTRO/setup.bash
+fi
+
+if [ ! -e /run/dbus/messagebus.pid ]; then
+	mkdir -p /run/dbus
+	dbus-daemon --system --fork
+fi
+
+# Restore some settings from before
+for v in $SAVE_VARS; do
+	VN=PREENV_$v
+	if [ -n "${!VN}" ]; then
+		export $v=${!VN}
+	fi
+done
+
+echo "Running Fawkes"
+
+if [ -z "$META_PLUGIN" ]; then
+	>&2 echo "Meta plugin not set, aborting"
+	exit 41
+fi
+LL=${LOG_LEVEL:-info}
+CONF=${CONFIG:-config.yaml}
+echo "- Log level:   $LL"
+echo "- Config:      $CONF"
+echo "- Meta plugin: $META_PLUGIN"
+echo
+$FAWKES_DIR/bin/fawkes -c $CONF -L console -l $LL $META_PLUGIN || exit 42
+
+echo "*** TERMINATED SUCCESSFULLY ***"
+exit 0
+

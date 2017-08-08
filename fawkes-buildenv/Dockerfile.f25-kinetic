@@ -17,5 +17,6 @@ RUN /bin/bash -c "source /etc/profile && \
 
 RUN mkdir -p /opt/fawkes-buildenv /opt/fawkes-buildenv/patches.d /opt/fawkes-runenv
 COPY scripts.build.d/* /opt/fawkes-buildenv/
+COPY scripts.run.d/* /opt/fawkes-runenv/
 COPY patches.d/* /opt/fawkes-buildenv/patches.d/
 
