@@ -58,9 +58,21 @@ if [ -n "$KUBERNETES" ]; then
 		while (( $N != ${#ROBOTS[@]} )); do
 			# Debug to read in log
 			RESULT=$(curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL")
-			N=$(jq -r '.items | map(select(.status.phase=="Running")) | length' <<< "$RESULT")
+			N_PODS=$(jq -r '.items | length' <<< "$RESULT")
+			if [ -z "$N_PODS" ]; then N_PODS=0; fi
 
-			if [ -z "$N" ]; then N=0; fi
+			N=0
+			for i in $(seq 0 $(($N_PODS - 1))); do
+				PHASE=$(jq -r ".items[$i].status.phase" <<< "$RESULT")
+				if [ "$PHASE" == "Running" ]; then
+					N_CONTAINERS=$(jq -r ".items[$i].spec.containers | length" <<< "$RESULT")
+					N_READY=$(jq -r ".items[$i].status.containerStatuses | map(select(.ready==true)) | length" <<< $RESULT)
+					if (( "$N_CONTAINERS" == "$N_READY" )); then
+						(( N=N+1 ))
+					fi
+				fi
+			done
+
 			(( TRIES=TRIES+1 ))
 
 			echo "Robots found: $N/${#ROBOTS[@]} ($TRIES tries)"
