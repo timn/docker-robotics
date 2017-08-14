@@ -2,16 +2,12 @@ FROM       timn/fawkes-buildenv:f25-kinetic
 
 # ROS_DISTRO set by fedora-ros layer
 
-RUN mkdir -p /opt/patches.fawkes
-COPY patches.d/* /opt/patches.fawkes/
-
 # Get and compile Fawkes
 RUN /bin/bash -c "source /opt/fawkes-buildenv/setup.bash && \
 	/opt/fawkes-buildenv/get-fawkes-release -C /opt fawkes-robotino-2016-2.tar.bz2 &&\
-	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 -d fawkes /opt/patches.fawkes/fawkes-core-*.patch &&\
-	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 /opt/patches.fawkes/fawkes-robotino-*.patch &&\
+	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 -d fawkes /opt/fawkes-buildenv/patches.d/fawkes-core-*.patch &&\
+	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 /opt/fawkes-buildenv/patches.d/fawkes-robotino-*.patch &&\
 	/opt/fawkes-buildenv/generic-build-flags -C /opt/fawkes-robotino &&\
 	/opt/fawkes-buildenv/build -C /opt/fawkes-robotino &&\
 	/opt/fawkes-buildenv/tweaks -C /opt/fawkes-robotino robotino-agent-2015 rcll-sim-cluster \
   "
-
