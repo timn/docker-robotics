@@ -20,6 +20,7 @@ RUN /bin/bash -c "if [ -z \"$SSH_AUTH_SOCK\" ]; then >&2 echo SSH_AUTH_SOCK not 
 	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 -d fawkes /opt/fawkes-buildenv/patches.d/fawkes-core-*.patch &&\
 	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 /opt/fawkes-buildenv/patches.d/fawkes-robotino-*.patch &&\
 	/opt/fawkes-buildenv/generic-build-flags -C /opt/fawkes-robotino &&\
-	/opt/fawkes-buildenv/build -C /opt/fawkes-robotino \
+	/opt/fawkes-buildenv/build -C /opt/fawkes-robotino &&\
+	/opt/fawkes-buildenv/tweaks -C /opt/fawkes-robotino rcll-sim-cluster \
   "
 
