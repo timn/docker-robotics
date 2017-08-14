@@ -10,6 +10,10 @@ RUN /bin/bash -c "if [ -z \"$SSH_AUTH_SOCK\" ]; then >&2 echo SSH_AUTH_SOCK not 
 		>&2 echo \"SSH auth socket $SSH_AUTH_SOCK does not exist. Forgot build volume?\"; \
 		exit 1; \
 	fi; \
+	if ! ssh-add -l >/dev/null; then \
+		>&2 echo \"No identities have been added to SSH agent, run ssh-agent on host\"; \
+		exit 1; \
+	fi; \
 	source /opt/fawkes-buildenv/setup.bash && \
 	/opt/fawkes-buildenv/get-fawkes-from-git -C /opt --repo fawkes-robotino \
     --branch $GIT_HEAD \${GIT_CORE_HEAD:+--core-head $GIT_CORE_HEAD} &&\
