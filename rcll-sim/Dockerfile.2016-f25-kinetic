@@ -3,14 +3,17 @@ FROM       timn/fawkes-robotino:2016-f25-kinetic
 RUN dnf install -y jq python3-pymongo python3-dns mongodb mongo-tools && dnf clean all
 
 # Get and compile Gazebo stuff
-# And set to real-time (originally is at 1.2 real-time)
+# - set to real-time (originally is at 1.2 real-time)
+# - disable extra light source, bad for gzweb
 RUN cd /opt && \
 	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
   cd gazebo-rcll && \
   git checkout timn/2016-merge && \
 	make -j$(nproc) CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic" &&\
 	cd /opt/gazebo-rcll &&\
-	sed -i -e 's|<max_step_size>0.004</max_step_size>|<max_step_size>0.00333</max_step_size>|g' \
+	sed -i \
+		-e 's|<max_step_size>0.004</max_step_size>|<max_step_size>0.00333</max_step_size>|g' \
+		-e 's/<light/<!-- <light/' -e 's/\/light>/\/light> -->/' \
 		worlds/carologistics/llsf.world \
 		worlds/carologistics/llsf-default.world \
 		worlds/carologistics/llsf-two-teams.world \
