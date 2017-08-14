@@ -7,7 +7,7 @@ SCRIPT_PATH=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 
 # Save some environment variables which might be set from container
 # env but would be overwritten by some statements (from included files)
-SAVE_VARS="ROS_MASTER_URI"
+SAVE_VARS="ROS_MASTER_URI GAZEBO_MASTER_URI"
 
 for v in $SAVE_VARS; do
 	if [ -n "${!v}" ]; then
