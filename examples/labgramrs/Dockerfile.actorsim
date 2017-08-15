@@ -1,0 +1,23 @@
+FROM       timn/fedora-robotics:f25
+
+RUN dnf install -y java-1.8.0-openjdk-headless minisat2 jq && dnf clean all
+
+ARG  SSH_AUTH_SOCK=/ssh-agent
+ARG  ACTORSIM_GIT_HEAD=master
+ARG  ACTORSIM_RCLL_GIT_HEAD
+
+RUN /bin/bash -c "if [ -z \"$SSH_AUTH_SOCK\" ]; then >&2 echo SSH_AUTH_SOCK not set; exit 1; fi; \
+  if [ ! -e \"$SSH_AUTH_SOCK\" ]; then \
+    >&2 echo \"SSH auth socket $SSH_AUTH_SOCK does not exist. Forgot build volume?\"; \
+    exit 1; \
+  fi; \
+  if ! ssh-add -l >/dev/null; then \
+    >&2 echo \"No identities have been added to SSH agent, run ssh-agent on host\"; \
+    exit 1; \
+  fi; \
+	mkdir -p $HOME/.ssh; ssh-keyscan git.fawkesrobotics.org >> $HOME/.ssh/known_hosts; \
+	git clone -b $ACTORSIM_RCLL_GIT_HEAD git@git.fawkesrobotics.org:actorsim-rcll-connector.git /opt/actorsim-rcll \
+	"
+
+RUN mkdir -p /opt/bin
+COPY scripts/* /opt/bin/

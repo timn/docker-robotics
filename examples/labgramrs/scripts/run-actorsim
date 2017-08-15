@@ -1,0 +1,157 @@
+#!/bin/bash
+
+set -e
+#source /etc/profile
+
+SCRIPT_PATH=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+
+if [ -e /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
+	KUBERNETES="true"
+	KUBERNETES_CACRT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+	KUBERNETES_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+	if [ -z "$KUBERNETES_NAMESPACE" ]; then
+		>&2 echo KUBERNETES_NAMESPACE not set
+		exit 31
+	fi
+		
+fi
+
+# Save some environment variables which might be set from container
+# env but would be overwritten by some statements (from included files)
+SAVE_VARS="ROS_MASTER_URI"
+
+for v in $SAVE_VARS; do
+	if [ -n "${!v}" ]; then
+		eval PREENV_$v=${!v}
+	fi
+done
+
+export FAWKES_DIR=/opt/fawkes-robotino
+if [ -e /usr/share/gazebo/setup.sh ]; then
+	source /usr/share/gazebo/setup.sh
+fi
+if [ -e /opt/ros/$ROS_DISTRO/setup.bash ]; then
+	source /opt/ros/$ROS_DISTRO/setup.bash
+fi
+
+if [ ! -e /run/dbus/system_bus_socket ]; then
+	mkdir -p /run/dbus
+	dbus-daemon --system --fork
+fi
+
+# Restore some settings from before
+for v in $SAVE_VARS; do
+	VN=PREENV_$v
+	if [ -n "${!VN}" ]; then
+		export $v=${!VN}
+	fi
+done
+
+GROUP=$1
+if [ -z "$GROUP" ]; then
+	>&2 echo "No group configured"
+	exit 2
+fi
+
+if [ -n "$KUBERNETES" ]; then
+	echo "Running in Kubernetes, waiting for robot pods (${ROBOTS[*]})"
+	# Wait for the expected robot pods
+	if [ -n "$ROBOTS" ]; then
+		CLAUSE=${ROBOTS// /%2C}
+		TRIES=0
+		N=0
+		declare -a ROBOTS=($ROBOTS)
+		URL="https://kubernetes.default/api/v1/namespaces/$KUBERNETES_NAMESPACE/pods?labelSelector=app%3dfawkes,robot+in+%28${CLAUSE}%29"
+		echo "URL: $URL"
+		while (( $N != ${#ROBOTS[@]} )); do
+			# Debug to read in log
+			RESULT=$(curl -s --cacert $KUBERNETES_CACRT --header "Authorization: Bearer $KUBERNETES_TOKEN" "$URL")
+			N_PODS=$(jq -r '.items | length' <<< "$RESULT")
+			if [ -z "$N_PODS" ]; then N_PODS=0; fi
+
+			N=0
+			for i in $(seq 0 $(($N_PODS - 1))); do
+				PHASE=$(jq -r ".items[$i].status.phase" <<< "$RESULT")
+				if [ "$PHASE" == "Running" ]; then
+					N_CONTAINERS=$(jq -r ".items[$i].spec.containers | length" <<< "$RESULT")
+					N_READY=$(jq -r ".items[$i].status.containerStatuses | map(select(.ready==true)) | length" <<< $RESULT)
+					if (( "$N_CONTAINERS" == "$N_READY" )); then
+						(( N=N+1 ))
+					fi
+				fi
+			done
+
+			(( TRIES=TRIES+1 ))
+
+			echo "Robots found: $N/${#ROBOTS[@]} ($TRIES tries)"
+
+			if (( $N != ${#ROBOTS[@]} )); then
+				if (( $TRIES >= 60 )); then
+					>&2 echo "Waited for $TRIES tries, aborting"
+					exit 33
+				fi
+				sleep 5
+			fi
+		done
+	fi
+	# A little extra, Fawkes is up, but it may still be loading stuff
+	sleep 10
+else
+	>&2 echo "WARNING: Not running inside Kubernetes"
+	>&2 echo "         Cannot determine robot pods, just waiting 90 sec"
+	sleep 90
+fi
+
+echo "Running ActorSim for group $GROUP"
+
+cd /opt/actorsim-rcll
+
+#case $GROUP in
+#	labgramrs1)
+#		java \
+#		-jar labgramrs1.jar \
+#		-memDelay 150 -memDropDelay 300 -mvCompact false \
+#		-startupSuccessPath /tmp/actorsim-ok
+#		;;
+#	*)
+#		>&2 echo Unknown group $GROUP
+#		;;
+#esac
+
+#MEM_DELAY=150
+#MEM_DROP_DELAY=300
+MEM_DELAY=0
+MEM_DROP_DELAY=0
+
+WAIT_OK_TIMEOUT=60
+WAIT_OK_INTERVAL=5
+
+if [ "$GROUP" == "labgramrs2" ]; then
+	MEM_DELAY=150
+	MEM_DROP_DELAY=300
+fi
+
+# Run process in background and remember PID
+java \
+	-jar ${GROUP}.jar \
+	-memDelay $MEM_DELAY -memDropDelay $MEM_DROP_DELAY -mvCompact false \
+	-teamColor "${TEAM_COLOR,,}" \
+	-startupSuccessPath /tmp/actorsim-ok & pid=$!
+
+# Wait for startup success file to appear
+while [ ! -f /tmp/actorsim-ok ]; do
+	(( WAIT_OK_TIMEOUT = WAIT_OK_TIMEOUT - WAIT_OK_INTERVAL ))
+	if (( $WAIT_OK_TIMEOUT <= 0 )); then
+		2>&1 echo "ERROR: Waiting for ActorSim OK indicator file timeout"
+		exit 3
+	fi
+	sleep $WAIT_OK_INTERVAL
+done
+
+echo "ActorSim OK indicator file found (${WAIT_OK_TIMEOUT}s remaining)"
+echo "Now waiting on ActorSim process $pid"
+wait $pid
+
+echo "*** TERMINATED SUCCESSFULLY ***"
+exit 0
+
