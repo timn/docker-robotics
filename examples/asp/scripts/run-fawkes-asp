@@ -1,0 +1,43 @@
+#!/bin/bash
+
+set -e
+
+SCRIPT_PATH=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+
+export FAWKES_DIR=/opt/fawkes-robotino
+
+if [[ $TEAM_COLOR == "MAGENTA" ]]
+then
+  COLOR_PREFIX=m
+elif [[ $TEAM_COLOR == "CYAN" ]]
+then
+  COLOR_PREFIX=c
+fi
+
+sed -i "s/stargazer/mongodb-${COLOR_PREFIX}1/g;s/orinoco/mongodb-${COLOR_PREFIX}2/g;s/agamemnon/mongodb-${COLOR_PREFIX}3/g;s/pegasus/mongodb-planner-${TEAM_COLOR,,}/g" $FAWKES_DIR/cfg/conf.d/robot-memory.yaml
+sed -i "s/replica-set-members:.*/replica-set-members: \['mongodb-planner-${TEAM_COLOR,,}:27021','mongodb-${COLOR_PREFIX}1:27021','mongodb-${COLOR_PREFIX}2:27021','mongodb-${COLOR_PREFIX}3:27021'\]/g" $FAWKES_DIR/cfg/conf.d/robot-memory.yaml
+#sed -i "s/hosts:/hosts:\n        mongodb-planner-${TEAM_COLOR,,}: mongodb-planner-${TEAM_COLOR,,}:27021/g" $FAWKES_DIR/cfg/conf.d/robot-memory.yaml
+sed -i "/plugins\/mongodb\/clients/,+50d" $FAWKES_DIR/cfg/gazsim-configurations/gazsim-config-override.yaml
+sed -i -e 's|program-path: .*|program-path: /opt/fawkes-robotino/src/agents/asp/|g' $FAWKES_DIR/cfg/conf.d/asp-agent.yaml
+
+echo "Waiting for MongoDB"
+MAX_TRIES=${REFBOX_MONGODB_WAIT_MAX_TRIES:-50}
+PERIOD=${REFBOX_MONGODB_WAIT_PERIOD:-1}
+for h in "mongodb-planner-${TEAM_COLOR,,}" "mongodb-${COLOR_PREFIX}1" "mongodb-${COLOR_PREFIX}2" "mongodb-${COLOR_PREFIX}3"; do
+  TRIES=0
+  REFBOX_MONGODB_HOST=$h
+  REFBOX_MONGODB_PORT=27021
+  while ! curl -f -s "http://$REFBOX_MONGODB_HOST:$REFBOX_MONGODB_PORT" >/dev/null; do
+    (( TRIES=TRIES+1 ))
+    if (( $TRIES >= $MAX_TRIES )); then
+      >&2 echo "Could not reach MongoDB $h after $TRIES tries, giving up"
+      exit 21
+    else
+      sleep $PERIOD
+    fi
+  done
+  (( TRIES=TRIES+1 ))
+  echo "MongoDB $h reachable after $TRIES/$MAX_TRIES tries"
+done
+
+exec /opt/fawkes-runenv/run-fawkes "$@"
