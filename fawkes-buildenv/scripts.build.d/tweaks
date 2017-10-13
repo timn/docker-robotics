@@ -6,8 +6,9 @@ TWEAKS=()
 CHANGE_DIR=
 PATCH_DIR=
 PATCH_STRIP=
+TEAM_NAME=Carologistics
 
-OPTS=$(getopt -o "C:" -- "$@")
+OPTS=$(getopt -o "C:" -l "team-name:" -- "$@")
 if [ $? != 0 ]
 then
     echo "Failed to parse parameters"
@@ -20,6 +21,7 @@ while true; do
   OPTARG=$2
   case $OPTION in
     -C)                    CHANGE_DIR=$OPTARG;;
+    --team-name)           TEAM_NAME=$OPTARG;;
     --)                    shift; break;;
   esac
   shift
@@ -72,6 +74,7 @@ for t in "${TWEAKS[@]}"; do
 					-e "s/magenta-recv-port: .*$/magenta-recv-port: $(expr 4510 + $i)/" \
 					-e "s/magenta-send-port: .*$/magenta-send-port: $(expr 4530 + $i)/" \
           -e "s/team-name: Carologistics-2/team-name: Carologistics/g" \
+          -e "s/team-name: Carologistics/team-name: $TEAM_NAME/g" \
           -e "s/robot-name: R-4/robot-name: R-1/g" \
           -e "s/robot-name: R-5/robot-name: R-2/g" \
           -e "s/robot-name: R-6/robot-name: R-3/g" \
