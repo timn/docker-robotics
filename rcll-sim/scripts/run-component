@@ -12,7 +12,21 @@ echo "Running component $COMPONENT"
 case $COMPONENT in
 	gazebo)
 		echo "Running gzserver"
-		gzserver $GAZEBO_WORLD_PATH || exit 11
+		GAZEBO_ARGS=""
+		if [ -n "$GAZEBO_RECORD" ]; then
+			if [ -z "$GAZEBO_RECORD_PATH" ]; then
+				>&2 echo "GAZEBO_RECORD set, but not GAZEBO_RECORD_PATH"
+				exit 21
+			fi
+			if [ ! -d $GAZEBO_RECORD_PATH ]; then
+				>&2 echo "$GAZEBO_RECORD_PATH is not a directory"
+				exit 21
+			fi
+			GAZEBO_RECORD_DIR=$GAZEBO_RECORD_PATH/${JOB_NAME//:/_}
+			mkdir -p $GAZEBO_RECORD_DIR
+			GAZEBO_ARGS="$GAZEBO_ARGS --record --record_path $GAZEBO_RECORD_DIR"
+		fi
+		gzserver $GAZEBO_ARGS $GAZEBO_WORLD_PATH || exit 11
 		;;
 
 	refbox)
