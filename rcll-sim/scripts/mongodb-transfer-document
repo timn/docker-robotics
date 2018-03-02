@@ -6,6 +6,7 @@ from pymongo.errors import ConnectionFailure
 import dns.resolver
 
 import os
+import sys
 import json
 
 class MongoDBConfig(object):
@@ -85,22 +86,31 @@ class MongoDBDocumentTransfer(object):
 		print("Input Collection:  %s" % self.input_connection.collection_name)
 		print("Output Collection: %s" % self.output_connection.collection_name)
 		print("Input Query: %s" % self.input_config.query)
-		doc = self.input_connection.collection.find_one(self.input_config.query)
+		filter = json.loads(self.input_config.query)
+		if type(filter) != type({}):
+			raise Exception("Invalid query")
+		doc = self.input_connection.collection.find_one(filter)
 		if doc is None:
-			raise Exception("Query " + self.input_config.query + " did not return any document")
+			raise Exception("Input query did not return any document")
 
 		if self.output_config.modification is not None:
 			print("Output Modification: '%s'" % self.output_config.modification)
 			mod = json.loads(self.output_config.modification)
 			if type(mod) != type({}):
-				print("Invalid modification, must be a dict")
-			else:
-				for key, value in mod.items():
-					doc[key] = value
+				raise Exception("Invalid output modification")
+
+			for key, value in mod.items():
+				doc[key] = value
 
 		doc.pop("_id")
 		self.output_connection.collection.insert_one(doc)
 
 if __name__ == '__main__':
-	t = MongoDBDocumentTransfer()
-	t.transfer()
+	try:
+		t = MongoDBDocumentTransfer()
+		t.transfer()
+	except Exception as e:
+		print("Failed to transfer document: %s" % str(e), file=sys.stderr)
+		sys.exit(1)
+
+	sys.exit(0)
