@@ -108,7 +108,22 @@ $LLSF_REFBOX_DIR/bin/rcll-refbox-instruct $REFBOX_REMOTE -w${REFBOX_COMM_TIMEOUT
 echo "Game Over"
 
 echo "Transferring Game Report"
-$SCRIPT_PATH/mongodb-transfer-document
+MONGODB_QUERY_DEFAULT='{"start-time": { "$exists": 1}, "end-time": { "$exists": 1}}'
+export INPUT_MONGODB_QUERY=${REFBOX_GAMEREPORT_TRANSFER_MONGODB_QUERY:-$MONGODB_QUERY_DEFAULT}
+MONGODB_TRANSFER_TRIES=0
+MONGODB_TRANSFER_TRIES_MAX=${REFBOX_GAMEREPORT_TRANSFER_TRIES_MAX:-30}
+
+while ! $SCRIPT_PATH/mongodb-transfer-document; do
+	(( MONGODB_TRANSFER_TRIES=MONGODB_TRANSFER_TRIES+1))
+	if (( $MONGODB_TRANSFER_TRIES == $MONGODB_TRANSFER_TRIES_MAX )); then
+		>&2 echo "Failed to transfer game report document $MONGODB_TRANSFER_TRIES times, aborting"
+		exit 36
+	else
+		echo "Game report MongoDB transfer failed in try $MONGODB_TRANSFER_TRIES/$MONGODB_TRANSFER_TRIES_MAX"
+		sleep 1
+	fi
+done
+unset INPUT_MONGODB_QUERY
 
 if [ -z "$REFBOX_MONGODB_HOST" ] || [ -z "$REFBOX_MONGODB_PORT" ] || [ -z "$REFBOX_MONGODB_DATABASE" ]; then
 	>&2 echo "WARNING: for database export refbox DB must be given as host/port/database, not URI, or RS SRV"
