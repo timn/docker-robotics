@@ -1,0 +1,301 @@
+From cb98730210d4149c78f1d80c101c14b26c712586 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Victor=20Matar=C3=A9?= <matare@lih.rwth-aachen.de>
+Date: Thu, 16 Feb 2017 16:32:24 +0100
+Subject: [PATCH 1/2] gazsim: fix gazebo 8 deprecation warnings/errors
+
+---
+ src/libs/utils/misc/gazebo_api_wrappers.h          | 95 ++++++++++++++++++++++
+ .../gazsim-localization/gazebo-plugin/gps.cpp      | 26 +++---
+ .../gazsim-robotino/gazebo-plugin-gyro/gyro.cpp    | 14 ++--
+ .../gazsim-robotino/gazebo-plugin-motor/motor.cpp  | 10 ++-
+ 4 files changed, 123 insertions(+), 22 deletions(-)
+ create mode 100644 src/libs/utils/misc/gazebo_api_wrappers.h
+
+diff --git a/src/libs/utils/misc/gazebo_api_wrappers.h b/src/libs/utils/misc/gazebo_api_wrappers.h
+new file mode 100644
+index 000000000..0a9802694
+--- /dev/null
++++ b/src/libs/utils/misc/gazebo_api_wrappers.h
+@@ -0,0 +1,95 @@
++#ifndef GAZEBO_API_WRAPPERS_H
++#define GAZEBO_API_WRAPPERS_H
++
++#include <gazebo/gazebo.hh>
++
++// Welcome to the Gazebo API refactoring hell.
++
++#if GAZEBO_MAJOR_VERSION >= 8
++
++# define GZWRAP_SIM_TIME SimTime
++# define GZWRAP_REAL_TIME RealTime
++# define GZWRAP_RUNNING Running
++# define GZWRAP_MODEL_BY_NAME ModelByName
++# define GZWRAP_MODEL_BY_INDEX ModelByIndex
++# define GZWRAP_MODEL_COUNT ModelCount
++# define GZWRAP_WORLD_POSE WorldPose
++# define GZWRAP_ENTITY_BY_NAME EntityByName
++# define GZWRAP_SIM_TIME SimTime
++# define GZWRAP_NAME Name
++# define GZWRAP_BOUNDING_BOX BoundingBox
++# define GZWRAP_LENGTH Length
++# define GZWRAP_MODELS Models
++# define GZWRAP_PHYSICS Physics
++# define GZWRAP_BASE_BY_NAME BaseByName
++
++# define GZWRAP_POS Pos()
++# define GZWRAP_ROT Rot()
++# define GZWRAP_EULER Euler()
++# define GZWRAP_X X()
++# define GZWRAP_Y Y()
++# define GZWRAP_Z Z()
++# define GZWRAP_W W()
++
++# define GZWRAP_ROT_ROLL Rot().Roll()
++# define GZWRAP_ROT_PITCH Rot().Pitch()
++# define GZWRAP_ROT_YAW Rot().Yaw()
++
++#else
++
++# define GZWRAP_SIM_TIME GetSimTime
++# define GZWRAP_REAL_TIME GetRealTime
++# define GZWRAP_RUNNING GetRunning
++# define GZWRAP_MODEL_BY_NAME GetModel
++# define GZWRAP_MODEL_BY_INDEX GetModel
++# define GZWRAP_MODEL_COUNT GetModelCount
++# define GZWRAP_WORLD_POSE GetWorldPose
++# define GZWRAP_ENTITY_BY_NAME GetEntity
++# define GZWRAP_SIM_TIME GetSimTime
++# define GZWRAP_NAME GetName
++# define GZWRAP_BOUNDING_BOX GetBoundingBox
++# define GZWRAP_LENGTH GetLength
++# define GZWRAP_MODELS GetModels
++# define GZWRAP_PHYSICS GetPhysicsEngine
++# define GZWRAP_BASE_BY_NAME GetByName
++
++# define GZWRAP_POS pos
++# define GZWRAP_ROT rot
++# define GZWRAP_EULER GetAsEuler()
++# define GZWRAP_X x
++# define GZWRAP_Y y
++# define GZWRAP_Z z
++# define GZWRAP_W w
++
++# define GZWRAP_ROT_ROLL rot.GetRoll()
++# define GZWRAP_ROT_PITCH rot.GetPitch()
++# define GZWRAP_ROT_YAW rot.GetYaw()
++
++#endif
++
++#define GZWRAP_POS_X GZWRAP_POS.GZWRAP_X
++#define GZWRAP_POS_Y GZWRAP_POS.GZWRAP_Y
++#define GZWRAP_POS_Z GZWRAP_POS.GZWRAP_Z
++
++#define GZWRAP_ROT_X GZWRAP_ROT.GZWRAP_X
++#define GZWRAP_ROT_Y GZWRAP_ROT.GZWRAP_Y
++#define GZWRAP_ROT_Z GZWRAP_ROT.GZWRAP_Z
++#define GZWRAP_ROT_W GZWRAP_ROT.GZWRAP_W
++
++# define GZWRAP_ROT_EULER_X GZWRAP_ROT.GZWRAP_EULER.GZWRAP_X
++# define GZWRAP_ROT_EULER_Y GZWRAP_ROT.GZWRAP_EULER.GZWRAP_Y
++# define GZWRAP_ROT_EULER_Z GZWRAP_ROT.GZWRAP_EULER.GZWRAP_Z
++
++namespace gzwrap {
++
++#if GAZEBO_MAJOR_VERSION >= 8
++typedef ignition::math::Pose3d Pose3d;
++typedef ignition::math::Vector3d Vector3d;
++#else
++typedef gazebo::math::Pose Pose3d;
++typedef gazebo::math::Vector3 Vector3d;
++#endif
++
++} // namespace gazebo_wrappers
++
++#endif // GAZEBO_API_WRAPPERS_H
+diff --git a/src/plugins/gazebo/gazsim-localization/gazebo-plugin/gps.cpp b/src/plugins/gazebo/gazsim-localization/gazebo-plugin/gps.cpp
+index e0efd732b..92744927f 100644
+--- a/src/plugins/gazebo/gazsim-localization/gazebo-plugin/gps.cpp
++++ b/src/plugins/gazebo/gazsim-localization/gazebo-plugin/gps.cpp
+@@ -20,6 +20,8 @@
+ 
+ #include <math.h>
+ 
++#include <utils/misc/gazebo_api_wrappers.h>
++
+ #include "gps.h"
+ 
+ using namespace gazebo;
+@@ -55,11 +57,10 @@ void Gps::Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/)
+ 
+   //Create the communication Node for communication with fawkes
+   this->node_ = transport::NodePtr(new transport::Node());
+-  //the namespace is set to the model name!
+-  this->node_->Init(model_->GetWorld()->GetName()+"/"+name_);
+ 
+-  //init last sent time
+-  last_sent_time_ = model_->GetWorld()->GetSimTime().Double();
++  //set namespace to the model name & init last sent time
++  this->node_->Init(model_->GetWorld()->GZWRAP_NAME()+"/"+name_);
++  last_sent_time_ = model_->GetWorld()->GZWRAP_SIM_TIME().Double();
+ 
+   //create publisher
+   this->gps_pub_ = this->node_->Advertise<msgs::Pose>("~/gazsim/gps/");
+@@ -71,7 +72,8 @@ void Gps::Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/)
+ void Gps::OnUpdate(const common::UpdateInfo & /*_info*/)
+ {
+   //Send position information to Fawkes
+-  double time = model_->GetWorld()->GetSimTime().Double();
++  double time = model_->GetWorld()->GZWRAP_SIM_TIME().Double();
++
+   if(time - last_sent_time_ > (1.0 / 10.0))
+   {
+     last_sent_time_ = time;
+@@ -94,13 +96,13 @@ void Gps::send_position()
+   {
+     //build message
+     msgs::Pose posMsg;
+-    posMsg.mutable_position()->set_x(this->model_->GetWorldPose().pos.x);
+-    posMsg.mutable_position()->set_y(this->model_->GetWorldPose().pos.y);
+-    posMsg.mutable_position()->set_z(this->model_->GetWorldPose().pos.z);
+-    posMsg.mutable_orientation()->set_x(this->model_->GetWorldPose().rot.x);
+-    posMsg.mutable_orientation()->set_y(this->model_->GetWorldPose().rot.y);
+-    posMsg.mutable_orientation()->set_z(this->model_->GetWorldPose().rot.z);
+-    posMsg.mutable_orientation()->set_w(this->model_->GetWorldPose().rot.w);
++    posMsg.mutable_position()->set_x(this->model_->GZWRAP_WORLD_POSE().GZWRAP_POS_X);
++    posMsg.mutable_position()->set_y(this->model_->GZWRAP_WORLD_POSE().GZWRAP_POS_Y);
++    posMsg.mutable_position()->set_z(this->model_->GZWRAP_WORLD_POSE().GZWRAP_POS_Z);
++    posMsg.mutable_orientation()->set_x(this->model_->GZWRAP_WORLD_POSE().GZWRAP_ROT_X);
++    posMsg.mutable_orientation()->set_y(this->model_->GZWRAP_WORLD_POSE().GZWRAP_ROT_Y);
++    posMsg.mutable_orientation()->set_z(this->model_->GZWRAP_WORLD_POSE().GZWRAP_ROT_Z);
++    posMsg.mutable_orientation()->set_w(this->model_->GZWRAP_WORLD_POSE().GZWRAP_ROT_W);
+ 
+     //send
+     gps_pub_->Publish(posMsg);
+diff --git a/src/plugins/gazebo/gazsim-robotino/gazebo-plugin-gyro/gyro.cpp b/src/plugins/gazebo/gazsim-robotino/gazebo-plugin-gyro/gyro.cpp
+index e9cd79d15..5bb656493 100644
+--- a/src/plugins/gazebo/gazsim-robotino/gazebo-plugin-gyro/gyro.cpp
++++ b/src/plugins/gazebo/gazsim-robotino/gazebo-plugin-gyro/gyro.cpp
+@@ -20,6 +20,8 @@
+ 
+ #include <math.h>
+ 
++#include <utils/misc/gazebo_api_wrappers.h>
++
+ #include "gyro.h"
+ 
+ using namespace gazebo;
+@@ -55,14 +57,14 @@ void Gyro::Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/)
+   //Create the communication Node for communication with fawkes
+   this->node_ = transport::NodePtr(new transport::Node());
+   //the namespace is set to the model name!
+-  this->node_->Init(model_->GetWorld()->GetName()+"/"+name_);
++  this->node_->Init(model_->GetWorld()->GZWRAP_NAME()+"/"+name_);
+ 
+ 
+   //create publisher
+   this->gyro_pub_ = this->node_->Advertise<msgs::Vector3d>("~/RobotinoSim/Gyro/");
+ 
+   //init last sent time
+-  last_sent_time_ = model_->GetWorld()->GetSimTime().Double();
++  last_sent_time_ = model_->GetWorld()->GZWRAP_SIM_TIME().Double();
+   this->send_interval_ = 0.05;
+ }
+ 
+@@ -71,7 +73,7 @@ void Gyro::Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/)
+ void Gyro::OnUpdate(const common::UpdateInfo & /*_info*/)
+ {
+   //Send gyro information to Fawkes
+-  double time = model_->GetWorld()->GetSimTime().Double();
++  double time = model_->GetWorld()->GZWRAP_SIM_TIME().Double();
+   if(time - last_sent_time_ > send_interval_)
+   {
+     last_sent_time_ = time;
+@@ -90,9 +92,9 @@ void Gyro::send_gyro()
+   if(gyro_pub_->HasConnections())
+   {
+     //Read gyro from simulation
+-    float roll = this->model_->GetWorldPose().rot.GetAsEuler().x;
+-    float pitch = this->model_->GetWorldPose().rot.GetAsEuler().y;
+-    float yaw = this->model_->GetWorldPose().rot.GetAsEuler().z;
++    float roll = this->model_->GZWRAP_WORLD_POSE().GZWRAP_ROT_EULER_X;
++    float pitch = this->model_->GZWRAP_WORLD_POSE().GZWRAP_ROT_EULER_Y;
++    float yaw = this->model_->GZWRAP_WORLD_POSE().GZWRAP_ROT_EULER_Z;
+ 
+     //build message
+     msgs::Vector3d gyroMsg;
+diff --git a/src/plugins/gazebo/gazsim-robotino/gazebo-plugin-motor/motor.cpp b/src/plugins/gazebo/gazsim-robotino/gazebo-plugin-motor/motor.cpp
+index cdf7ae240..3cd49015c 100644
+--- a/src/plugins/gazebo/gazsim-robotino/gazebo-plugin-motor/motor.cpp
++++ b/src/plugins/gazebo/gazsim-robotino/gazebo-plugin-motor/motor.cpp
+@@ -20,6 +20,8 @@
+ 
+ #include <math.h>
+ 
++#include <utils/misc/gazebo_api_wrappers.h>
++
+ #include "motor.h"
+ 
+ using namespace gazebo;
+@@ -55,7 +57,7 @@ void Motor::Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/)
+   //Create the communication Node for communication with fawkes
+   this->node_ = transport::NodePtr(new transport::Node());
+   //the namespace is set to the model name!
+-  this->node_->Init(model_->GetWorld()->GetName()+"/"+name_);
++  this->node_->Init(model_->GetWorld()->GZWRAP_NAME()+"/"+name_);
+ 
+ 
+   //initialize movement commands:
+@@ -73,7 +75,7 @@ void Motor::OnUpdate(const common::UpdateInfo & /*_info*/)
+ {
+   //Apply movement command
+   float x,y;
+-  float yaw = this->model_->GetWorldPose().rot.GetAsEuler().z;
++  float yaw = this->model_->GZWRAP_WORLD_POSE().GZWRAP_ROT_EULER_Z;
+   //foward part
+   x = cos(yaw) * vx_;
+   y = sin(yaw) * vx_;
+@@ -81,8 +83,8 @@ void Motor::OnUpdate(const common::UpdateInfo & /*_info*/)
+   x += cos(yaw + 3.1415926f / 2) * vy_;
+   y += sin(yaw + 3.1415926f / 2) * vy_;
+   // Apply velocity to the model.
+-  this->model_->SetLinearVel(math::Vector3(x, y, 0));
+-  this->model_->SetAngularVel(math::Vector3(0, 0, vomega_));
++  this->model_->SetLinearVel(gzwrap::Vector3d(x, y, 0));
++  this->model_->SetAngularVel(gzwrap::Vector3d(0, 0, vomega_));
+ }
+ 
+ /** on Gazebo reset
+-- 
+2.14.3
+
+
+From 6866f3999c95f33caf7450f62180ea8a7ba98cc6 Mon Sep 17 00:00:00 2001
+From: Till Hofmann <hofmann@kbsg.rwth-aachen.de>
+Date: Mon, 24 Apr 2017 13:15:57 +0200
+Subject: [PATCH 2/2] gazebo: disable deprecated declarations warnings
+
+Gazebo 8 declared several symbols as deprecated but still uses them.
+Therefore, disable the warning until this is fixed in Gazebo.
+---
+ src/plugins/gazebo/gazebo.mk | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugins/gazebo/gazebo.mk b/src/plugins/gazebo/gazebo.mk
+index 0b57ad90a..351ebf831 100644
+--- a/src/plugins/gazebo/gazebo.mk
++++ b/src/plugins/gazebo/gazebo.mk
+@@ -26,7 +26,10 @@ ifneq ($(PKGCONFIG),)
+ endif
+ 
+ ifeq ($(HAVE_GAZEBO),1)
+-  CFLAGS_GAZEBO  = -DHAVE_GAZEBO $(shell $(PKGCONFIG) --cflags 'gazebo')
++  # Gazebo 8 declared several symbols as deprecated but still uses them.
++  # Disable the deprecated declarations warning until this is fixed.
++  CFLAGS_GAZEBO  = -DHAVE_GAZEBO $(shell $(PKGCONFIG) --cflags 'gazebo') \
++                   -Wno-deprecated-declarations
+   LDFLAGS_GAZEBO = $(shell $(PKGCONFIG) --libs 'gazebo') -ldl
+ 
+   # if ffmpeg is installed, gazebo may have been compiled with support for it
+-- 
+2.14.3
+

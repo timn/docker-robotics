@@ -1,0 +1,115 @@
+From 7c412b329df1e3f8c5427e538cfd60f12dfe8ba8 Mon Sep 17 00:00:00 2001
+From: Till Hofmann <hofmann@kbsg.rwth-aachen.de>
+Date: Thu, 6 Jul 2017 16:39:05 +0200
+Subject: [PATCH 1/2] navgraph-broker: fix format string in log message
+
+---
+ src/plugins/navgraph_broker/navgraph_broker_thread.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/plugins/navgraph_broker/navgraph_broker_thread.cpp b/src/plugins/navgraph_broker/navgraph_broker_thread.cpp
+index f0b7983a..12d05839 100644
+--- a/src/plugins/navgraph_broker/navgraph_broker_thread.cpp
++++ b/src/plugins/navgraph_broker/navgraph_broker_thread.cpp
+@@ -413,7 +413,7 @@ NavgraphBrokerThread::handle_peer_msg(boost::asio::ip::udp::endpoint &endpoint,
+ 				txt += tm->nodelist(i); txt += ",";
+ 			}
+ 			txt.erase(txt.length()-1,1); txt += "}";
+-			logger->log_info( name(), "Received reservation msg from '%s'time: { sec=%d nsec=%d }", tm->robotname().c_str(), tm->sec(), tm->nsec() );
++			logger->log_info( name(), "Received reservation msg from '%s'time: { sec=%ld nsec=%ld }", tm->robotname().c_str(), tm->sec(), tm->nsec() );
+ 		}
+ 	}
+ }
+-- 
+2.14.3
+
+
+From a1551d7b7305026892aefce24e28b793f6053056 Mon Sep 17 00:00:00 2001
+From: Till Hofmann <hofmann@kbsg.rwth-aachen.de>
+Date: Thu, 6 Jul 2017 16:42:27 +0200
+Subject: [PATCH 2/2] gazsim-navgraph-generator: fix format string in log
+ message
+
+---
+ .../gazsim-navgraph-generator/gazsim_navgraph_generator_thread.cpp      | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/plugins/gazebo/gazsim-navgraph-generator/gazsim_navgraph_generator_thread.cpp b/src/plugins/gazebo/gazsim-navgraph-generator/gazsim_navgraph_generator_thread.cpp
+index 65af2d90..9f15cdca 100644
+--- a/src/plugins/gazebo/gazsim-navgraph-generator/gazsim_navgraph_generator_thread.cpp
++++ b/src/plugins/gazebo/gazsim-navgraph-generator/gazsim_navgraph_generator_thread.cpp
+@@ -133,7 +133,7 @@ void GazsimNavgraphGeneratorThread::on_tag_msg(ConstPosePtr &msg) {
+ void GazsimNavgraphGeneratorThread::get_mpsID_by_tagID() {
+ 	if (tags_.size() != related_mps_.size()) {
+ 		logger->log_error(name(),
+-		                  "There are %i tags defined, but %i!=%i related mps!",
++		                  "There are %lu tags defined, but %lu!=%lu related mps!",
+ 		                  tags_.size(), related_mps_.size(), tags_.size());
+ 		return;
+ 	}
+-- 
+2.14.3
+
+From ce898458d3177ede793fc2e587868045f78bcb98 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Victor=20Matar=C3=A9?= <matare@lih.rwth-aachen.de>
+Date: Fri, 7 Jul 2017 13:22:36 +0200
+Subject: [PATCH] machine-signal: fix gcc7 errors
+
+---
+ src/plugins/machine-signal/sensor_thread.cpp | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/src/plugins/machine-signal/sensor_thread.cpp b/src/plugins/machine-signal/sensor_thread.cpp
+index d0cf34e1..40290a78 100644
+--- a/src/plugins/machine-signal/sensor_thread.cpp
++++ b/src/plugins/machine-signal/sensor_thread.cpp
+@@ -76,11 +76,10 @@ void MachineSignalSensorThread::loop() {
+   if (pipeline_thread_->lock_if_new_data()) {
+     std::list<SignalState> known_signals = pipeline_thread_->get_known_signals();
+     std::list<SignalState>::iterator best_signal = pipeline_thread_->get_best_signal();
+-    std::list<SignalState>::iterator open_gate = known_signals.end();
+ 
+     // Go through all known signals...
+     std::list<SignalState>::iterator known_signal = known_signals.begin();
+-    for (int i = 0; i < MAX_SIGNALS; i++) {
++    for (size_t i = 0; i < MAX_SIGNALS; i++) {
+ 
+       if (known_signal != known_signals.end()) {
+         // Put their states into the blackboard interfaces
+@@ -113,7 +112,7 @@ void MachineSignalSensorThread::loop() {
+   }
+ 
+   if (! pipeline_thread_->is_enabled()) {
+-    for (int i = 0; i < MAX_SIGNALS; i++) {
++    for (size_t i = 0; i < MAX_SIGNALS; i++) {
+       bb_signal_states_[i]->set_visibility_history(0);
+       bb_signal_states_[i]->set_ready(true);
+       bb_signal_states_[i]->write();
+-- 
+2.14.3
+
+From cda6e0834d96911d10bcf5817521a6cb181041bc Mon Sep 17 00:00:00 2001
+From: Till Hofmann <hofmann@kbsg.rwth-aachen.de>
+Date: Mon, 24 Apr 2017 15:26:57 +0200
+Subject: [PATCH] machine-signal: fix ambiguous use of std::abs
+
+---
+ src/plugins/machine-signal/pipeline_thread.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/plugins/machine-signal/pipeline_thread.cpp b/src/plugins/machine-signal/pipeline_thread.cpp
+index 20b50aa3..3af98456 100644
+--- a/src/plugins/machine-signal/pipeline_thread.cpp
++++ b/src/plugins/machine-signal/pipeline_thread.cpp
+@@ -733,7 +733,7 @@ inline float MachineSignalPipelineThread::compactness(const SignalState::signal_
+ {
+   //unsigned int gap1 = std::abs(s.yellow_roi->start.y - (s.red_roi->start.y + s.red_roi->height));
+   //unsigned int gap2 = std::abs(s.green_roi->start.y - (s.yellow_roi->start.y + s.yellow_roi->height));
+-  float h = std::abs((s.green_roi->start.y + s.green_roi->height) - s.red_roi->start.y);
++  float h = std::abs(static_cast<long>((s.green_roi->start.y + s.green_roi->height) - s.red_roi->start.y));
+   //float gappitude = 1 - (float(gap1 + gap2) / h);
+   float shortitude = 1 - (h / float(laser_roi.height));
+   return shortitude;
+-- 
+2.14.3
+

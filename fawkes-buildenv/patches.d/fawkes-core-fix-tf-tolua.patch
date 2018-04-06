@@ -1,0 +1,30 @@
+From 7b7f73ff8591126b6ce4e68252b664cd5f298910 Mon Sep 17 00:00:00 2001
+From: Till Hofmann <hofmann@kbsg.rwth-aachen.de>
+Date: Fri, 17 Nov 2017 02:04:13 +0100
+Subject: [PATCH] tf: only optimize with -O2, as -O3 causes uninitialized
+ values in bullet
+
+Optimizing with -O3 breaks the constructor of btTransform, the
+quaternion is not initialized correctly anymore, which can be noted by
+poses with wrong (random) rotations, e.g., after transforming a pose.
+Thus, fall back to -O2 to avoid this issue.
+---
+ src/libs/tf/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/libs/tf/Makefile b/src/libs/tf/Makefile
+index fa4e0d3f9..113119e33 100644
+--- a/src/libs/tf/Makefile
++++ b/src/libs/tf/Makefile
+@@ -33,7 +33,7 @@ OBJS_lua_fawkestf = fawkestf_tolua.o
+ OBJS_all = $(OBJS_libfawkestf) $(OBJS_lua_fawkestf)
+ 
+ ifeq ($(HAVE_TF),1)
+-  CFLAGS  += $(CFLAGS_TF)
++  CFLAGS  += $(CFLAGS_TF) -O2
+   LDFLAGS += $(LDFLAGS_TF)
+   LIBS_all = $(LIBDIR)/libfawkestf.so
+ 
+-- 
+2.14.3
+

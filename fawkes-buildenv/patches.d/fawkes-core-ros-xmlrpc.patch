@@ -1,0 +1,47 @@
+From 5838b11dbc3165043956a65176e31fb6b47b30b2 Mon Sep 17 00:00:00 2001
+From: Tim Niemueller <niemueller@kbsg.rwth-aachen.de>
+Date: Sat, 4 Mar 2017 18:39:46 +0100
+Subject: [PATCH] clips-ros: adapt to moved XmlRpc header
+
+This is due to https://github.com/ros/ros_comm/pull/962, i.e., a
+breakage in a minor version update to ROS Kinetic.
+---
+ src/plugins/clips-ros/Makefile             | 4 ++++
+ src/plugins/clips-ros/clips_ros_thread.cpp | 6 +++++-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugins/clips-ros/Makefile b/src/plugins/clips-ros/Makefile
+index a55832264..a4ab10f57 100644
+--- a/src/plugins/clips-ros/Makefile
++++ b/src/plugins/clips-ros/Makefile
+@@ -38,6 +38,10 @@ ifeq ($(HAVE_CPP11)$(HAVE_ROS)$(HAVE_CLIPS)$(HAVE_BOOST_LIBS)$(call ros-have-pkg
+   LDFLAGS += $(LDFLAGS_ROS) $(LDFLAGS_CLIPS) $(call ros-pkg-lflags,xmlrpcpp) \
+              $(call boost-libs-ldflags,$(REQ_BOOST_LIBS))
+ 
++  ifeq ($(call ros-pkg-version-atleast,xmlrpcpp,1.12.7),1)
++    CFLAGS += -DHAVE_NEW_ROS_XMLRPCPP_PATH
++  endif
++
+   PLUGINS_all = $(PLUGINDIR)/clips-ros.$(SOEXT)
+ 
+ 	INSTALL_extra = clips_files
+diff --git a/src/plugins/clips-ros/clips_ros_thread.cpp b/src/plugins/clips-ros/clips_ros_thread.cpp
+index dd1e32731..a474cf2d9 100644
+--- a/src/plugins/clips-ros/clips_ros_thread.cpp
++++ b/src/plugins/clips-ros/clips_ros_thread.cpp
+@@ -26,7 +26,11 @@
+ #include <ros/master.h>
+ #include <ros/network.h>
+ #include <ros/xmlrpc_manager.h>
+-#include <XmlRpc.h>
++#ifdef HAVE_NEW_ROS_XMLRPCPP_PATH
++#  include <xmlrpcpp/XmlRpc.h>
++#else
++#  include <XmlRpc.h>
++#endif
+ 
+ #include <tuple>
+ 
+-- 
+2.14.3
+

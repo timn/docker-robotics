@@ -1,0 +1,16 @@
+diff -urN fawkes-robotino-2016-2/cfg/conf.d/clips-agent.yaml fawkes-robotino/cfg/conf.d/clips-agent.yaml
+--- fawkes-robotino-2016-2/cfg/conf.d/clips-agent.yaml	2017-02-08 12:03:44.817457322 +0100
++++ fawkes-robotino/cfg/conf.d/clips-agent.yaml	2017-02-08 12:03:33.321383499 +0100
+@@ -42,10 +42,10 @@
+   #
+   # Note that this release does not include the production phase code for 2016
+   # for the rcll2016 domain model and agent specification
+-  agent: rcll2016/rcll2016
++  # agent: rcll2016/rcll2016
+   # To use the 2015 agent, which does include the old production phase code,
+   # uncomment the following line. The config values are in clips-agent-2015.yaml.
+-  # agent: llsf2015/llsf2015
++  agent: llsf2015/llsf2015
+ 
+  
+   rcll2016:
