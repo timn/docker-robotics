@@ -19,9 +19,6 @@ export FAWKES_DIR=/opt/fawkes-robotino
 if [ -e /usr/share/gazebo/setup.sh ]; then
 	source /usr/share/gazebo/setup.sh
 fi
-if [ -e /opt/ros/$ROS_DISTRO/setup.bash ]; then
-	source /opt/ros/$ROS_DISTRO/setup.bash
-fi
 
 if [ ! -e /run/dbus/messagebus.pid ]; then
 	mkdir -p /run/dbus
