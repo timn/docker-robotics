@@ -14,7 +14,7 @@ for v in $SAVE_VARS; do
 	fi
 done
 
-source /opt/ros/$ROS_DISTRO/setup.bash
+source /etc/profile.d/ros.sh
 
 # Restore some settings from before
 for v in $SAVE_VARS; do
