@@ -1,0 +1,30 @@
+FROM       timn/fawkes-robotino:2017-f27-kinetic
+
+RUN dnf install -y jq python3-pymongo python3-dns mongodb mongo-tools gecode-devel && dnf clean all
+
+# Get and compile Gazebo stuff
+# - set to real-time (originally is at 1.2 real-time)
+# - disable extra light source, bad for gzweb
+RUN cd /opt && \
+	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
+  cd gazebo-rcll && \
+  git checkout master && \
+	make -j$(nproc) CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic" &&\
+	cd /opt/gazebo-rcll &&\
+	sed -i \
+		-e 's|<max_step_size>0.004</max_step_size>|<max_step_size>0.00333</max_step_size>|g' \
+		-e 's/<light/<!-- <light/' -e 's/\/light>/\/light> -->/' \
+		worlds/carologistics/*.world
+
+# Get and compile RCLL Referee Box
+# If there is anything to merge blindly
+#EMAIL="docker@invalid.invalid" git merge --no-edit --no-ff origin/timn/instruct-tool && \
+RUN cd /opt && \
+	git clone https://git.fawkesrobotics.org/llsf-refbox.git && \
+	cd llsf-refbox && \
+  git checkout master && \
+	make -j$(nproc) all gui && \
+	sed -i -e 's|# - !ignore-missing conf.d/|- !ignore-missing conf.d/|g' cfg/config.yaml
+
+RUN mkdir /opt/rcll-sim
+COPY scripts/* /opt/rcll-sim/
