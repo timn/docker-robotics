@@ -5,6 +5,10 @@ RUN echo "deltarpm=0" >> /etc/dnf/dnf.conf && \
 	# Update and clean cache afterwards
 	dnf -y update && dnf clean all
 
+# Enable COPR for PDDL planners
+RUN dnf install -y 'dnf-command(copr)' && \
+	dnf -y copr enable thofmann/planner && \
+	dnf clean all
 # Install robotics related dependencies, be generous
 # Not in docker: ccache
 RUN dnf install -y \
@@ -47,5 +51,6 @@ RUN dnf install -y \
 	compat-lua compat-lua-devel compat-tolua++-devel \
 	collada-dom-devel python-collada python-empy lz4-devel libuuid-devel \
 	screen \
+	fast-downward fast-forward \
 	&& dnf clean all
 
