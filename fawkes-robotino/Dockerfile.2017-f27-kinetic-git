@@ -1,0 +1,26 @@
+FROM       timn/fawkes-buildenv:2017-f27-kinetic
+
+ARG  SSH_AUTH_SOCK=/ssh-agent
+ARG  GIT_HEAD=master
+ARG  GIT_CORE_HEAD
+
+# Get and compile Fawkes
+RUN /bin/bash -c "if [ -z \"$SSH_AUTH_SOCK\" ]; then >&2 echo SSH_AUTH_SOCK not set; exit 1; fi; \
+	if [ ! -e \"$SSH_AUTH_SOCK\" ]; then \
+		>&2 echo \"SSH auth socket $SSH_AUTH_SOCK does not exist. Forgot build volume?\"; \
+		exit 1; \
+	fi; \
+	if ! ssh-add -l >/dev/null; then \
+		>&2 echo \"No identities have been added to SSH agent, run ssh-agent on host\"; \
+		exit 1; \
+	fi; \
+	source /opt/fawkes-buildenv/setup.bash && \
+	/opt/fawkes-buildenv/get-fawkes-from-git -C /opt --repo fawkes-robotino \
+    --branch $GIT_HEAD \${GIT_CORE_HEAD:+--core-head $GIT_CORE_HEAD} &&\
+	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 -d fawkes /opt/fawkes-buildenv/patches.d/fawkes-core-*.patch &&\
+	/opt/fawkes-buildenv/apply-patches -C /opt/fawkes-robotino -p1 /opt/fawkes-buildenv/patches.d/fawkes-robotino-*.patch &&\
+	/opt/fawkes-buildenv/generic-build-flags -C /opt/fawkes-robotino &&\
+	/opt/fawkes-buildenv/build -C /opt/fawkes-robotino &&\
+	/opt/fawkes-buildenv/tweaks -C /opt/fawkes-robotino rcll-sim-cluster \
+  "
+

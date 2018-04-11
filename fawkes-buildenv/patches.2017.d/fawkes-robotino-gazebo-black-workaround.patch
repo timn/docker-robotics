@@ -1,0 +1,13 @@
+diff --git a/etc/scripts/gazsim-startup.bash b/etc/scripts/gazsim-startup.bash
+index e21ef0a0..78e2bed0 100755
+--- a/etc/scripts/gazsim-startup.bash
++++ b/etc/scripts/gazsim-startup.bash
+@@ -160,7 +160,7 @@ case $COMMAND in
+     gazebo )
+ 	# change Language (in german there is an error that gazebo can not use a number with comma)
+ 	export LC_ALL="C"
+-	gazebo $REPLAY $GAZEBO_WORLD $@
++  ( gzserver $REPLAY $GAZEBO_WORLD $@ & ); sleep 10s; gzclient
+ 	;;
+     gzserver ) 
+ 	# change Language (in german there is an error that gazebo can not use a number with comma)
