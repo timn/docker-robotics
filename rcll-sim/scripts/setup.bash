@@ -33,7 +33,7 @@ fi
 source /usr/share/gazebo/setup.sh
 source /opt/ros/$ROS_DISTRO/setup.bash
 
-if [ ! -e /run/dbus/messagebus.pid ]; then
+if [ ! -e /run/dbus/messagebus.pid -a ! -e /var/run/dbus/pid ]; then
 	mkdir -p /run/dbus
 	dbus-daemon --system --fork
 fi
