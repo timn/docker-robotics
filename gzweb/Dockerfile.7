@@ -50,7 +50,7 @@ RUN bash -c "\
 RUN apt-get update && apt-get install -q -y jq \
     && rm -rf /var/lib/apt/lists/*
 
-COPY scripts/* /opt/gzweb/
+COPY scripts/* scripts.7/* /opt/gzweb/
 
 # Not required in Kubernetes
 # setup environment
