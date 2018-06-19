@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Copyright (C) 2017-2018 Tim Niemueller [www.niemueller.org]
+
+# Save some environment variables which might be set from container
+# env but would be overwritten by some statements (from included files)
+SAVE_VARS="GAZEBO_MASTER_URI ROS_MASTER_URI"
+
+for v in $SAVE_VARS; do
+  if [ -n "${!v}" ]; then
+    eval PREENV_$v=${!v}
+  fi
+done
+
+source /usr/share/gazebo/setup.sh
+
+export GAZEBO_RCLL=/opt/gazebo-rcll
+export GAZEBO_PLUGIN_PATH=$GAZEBO_PLUGIN_PATH:$GAZEBO_RCLL/plugins/lib/gazebo
+export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:$GAZEBO_RCLL/models:$GAZEBO_RCLL/models/carologistics
+
+# Restore some settings from before
+for v in $SAVE_VARS; do
+  VN=PREENV_$v
+  if [ -n "${!VN}" ]; then
+    export $v=${!VN}
+  fi
+done
+
+pushd /opt/gzweb >/dev/null
+
+# Reduce update rate to not overload remote network links
+sed -i gzbridge/server.js \
+  -e 's/setPoseMsgFilterMinimumAge(0.02)/setPoseMsgFilterMinimumAge(0.25)/g' \
+  -e 's/setPoseMsgFilterMinimumDistanceSquared(0.00001)/setPoseMsgFilterMinimumDistanceSquared(0.01)/g' \
+  -e 's/setPoseMsgFilterMinimumQuaternionSquared(0.00001)/setPoseMsgFilterMinimumQuaternionSquared(0.01)/g'
+
+if [ -n "$GZWEB_USE_HTTPS" ]; then
+	# Enable HTTPS
+	sed -i http/client/gz3d.gui.js \
+	  -e "s|url : 'ws://'|url : 'wss://'|g" \
+	  -e "s|modelUri = 'http://'|modelUri = 'https://'|g" \
+	  -e "s|uriPath = 'http://'|uriPath = 'https://'|g"
+fi
+
+popd >/dev/null
+
+# Run the actual gzweb
+cd /opt/gzweb/gzbridge
+./server.js
+
+sleep infinity
+

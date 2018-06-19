@@ -1,0 +1,56 @@
+
+FROM gazebo:libgazebo8
+
+# install packages
+RUN apt-get update && apt-get install -q -y \
+    build-essential \
+    cmake \
+    git \
+    imagemagick \
+    curl \
+    jq \
+    libboost-all-dev \
+    libgts-dev \
+    libjansson-dev \
+    libtinyxml-dev \
+    libyaml-cpp-dev \
+    mercurial \
+    nodejs \
+    nodejs-legacy \
+    npm \
+    pkg-config \
+    protobuf-compiler \
+    psmisc \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+# install gazebo packages
+RUN apt-get update && apt-get upgrade -q -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Get and compile Gazebo stuff
+RUN cd /opt && \
+	git clone https://github.com/robocup-logistics/gazebo-rcll.git && \
+	cd gazebo-rcll && \
+  git checkout 2016 && \
+	make -j$(nproc) CFLAGS_MTUNE_NATIVE="-m64 -mtune=generic"
+
+# clone gzweb
+RUN bash -c "hg clone https://bitbucket.org/osrf/gzweb /opt/gzweb"
+
+COPY patches.8/* /opt/gzweb/
+
+# build gzweb
+RUN bash -c "\
+    cd /opt/gzweb \
+		&& for f in *.patch; do patch -p1 < \$f; done \
+    && hg up default \
+		&& mkdir -p http/client/assets \
+    && sed -i -e 's/gzserver/xvfb-run -s \"-screen 0 1280x1024x24\" gzserver/g' tools/gzthumbnails.sh \
+    && source /usr/share/gazebo/setup.sh \
+    && export GAZEBO_MODEL_PATH=\"\$GAZEBO_MODEL_PATH:/opt/gazebo-rcll/models\" \
+    && ./deploy.sh -m -t \
+    "
+
+COPY scripts/* scripts.8/* /opt/gzweb/
+

@@ -1,0 +1,32 @@
+diff -r e23be52de0c9 gz3d/src/gziface.js
+--- a/gz3d/src/gziface.js	Sat May 26 00:15:02 2018 +0000
++++ b/gz3d/src/gziface.js	Mon Jun 18 23:51:30 2018 +0200
+@@ -298,12 +298,13 @@
+ 
+   var visualUpdate = function(message)
+   {
+-    if (!this.scene.getByName(message.name))
++    var obj = this.scene.getByName(message.name);
++    if (!obj)
+     {
+       // accept only collision visual msgs for now
+       if (message.name.indexOf('COLLISION_VISUAL') < 0)
+       {
+-        return;
++        //return;
+       }
+ 
+       // delay the add if parent not found, this array will checked in
+@@ -319,6 +320,12 @@
+         parent.add(visualObj);
+       }
+     }
++    else
++    {
++      var obj = this.scene.getByName(message.name);
++      this.scene.setPose(obj, message.pose.position, message.pose.orientation);
++      obj.matrixWorldNeedsUpdate = true;
++    }
+   };
+ 
+   visualTopic.subscribe(visualUpdate.bind(this));
