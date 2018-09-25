@@ -1,0 +1,32 @@
+FROM timn/fedora-ros:f28-kinetic
+
+# ROS_DISTRO set by fedora-ros layer
+
+COPY fawkes-pre.rosinstall /opt/ros/
+
+# Get and compile ROS pre bits
+RUN /bin/bash -c "source /etc/profile && \
+  mkdir -p /opt/ros/catkin_ws_${ROS_DISTRO}_fawkes_pre/src; \
+  cd /opt/ros/catkin_ws_${ROS_DISTRO}_fawkes_pre; \
+  wstool init -j $(nproc) src ../fawkes-pre.rosinstall; \
+  rosdep install --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y; \
+  catkin_make_isolated --install --install-space /opt/ros/$ROS_DISTRO \
+    -DCMAKE_BUILD_TYPE=$ROS_BUILD_TYPE || exit $?; \
+  rm -rf *_isolated; \
+  "
+
+RUN \
+  dnf -y install ccache &&\
+  dnf clean all
+
+# These UID/GID must match the buildkite-agent UID/GID
+# This is typically created from our buildkite ansible role.
+RUN \
+  groupadd -g 1102 builder &&\
+  useradd -u 1102 -c "Builder" -d /opt/fawkes -g builder -G ccache builder
+
+USER builder
+
+#RUN mkdir -p /opt/fawkes-builder
+#COPY entrypoint /opt/fawkes-builder/entrypoint
+
