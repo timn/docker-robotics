@@ -1,4 +1,4 @@
-FROM       timn/fawkes-buildenv:f25-kinetic
+FROM       timn/fawkes-buildenv:f27-kinetic
 
 RUN dnf install -y re2c bison cppunit-devel && dnf clean all
 
