@@ -1,0 +1,68 @@
+FROM osrf/ros:melodic-desktop-full-bionic
+
+# ROS_DISTRO set by osrf/ros-core layer
+
+
+ENV SHELL=/bin/bash \
+    ROS_BUILD_TYPE=Release \
+    ROSCONSOLE_STDOUT_LINE_BUFFERED=1 \
+    ROSCONSOLE_FORMAT='[${severity}] [${time}] ${node}: ${message}' \
+    ROS_SETUP_BASH=/opt/ros/$ROS_DISTRO/setup.bash \
+    ROS_SETUP_SH=/opt/ros/$ROS_DISTRO/setup.sh
+
+
+COPY fawkes-pre.rosinstall /opt/ros/
+
+# Get and compile ROS pre bits
+RUN /bin/bash -c "source $ROS_SETUP_BASH && \
+  mkdir -p /opt/ros/catkin_ws_${ROS_DISTRO}_fawkes_pre/src; \
+  cd /opt/ros/catkin_ws_${ROS_DISTRO}_fawkes_pre; \
+  wstool init -j $(nproc) src ../fawkes-pre.rosinstall; \
+  rosdep install --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y; \
+  catkin_make_isolated --install --install-space /opt/ros/$ROS_DISTRO \
+    -DCMAKE_BUILD_TYPE=$ROS_BUILD_TYPE || exit $?; \
+  rm -rf *_isolated; \
+  "
+
+# PCL currently is broken on bionic (2018/09/26)
+# cf. https://bugs.launchpad.net/ubuntu/+source/pcl/+bug/1738902
+# Therefore, enable bionic-proposed and upgrade libpcl from there.
+# Note that Debian and Ubuntu based images automatically cleanup
+# afterwards.
+# https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#apt-get
+RUN \
+  apt-get -y update &&\
+  apt-get -y install software-properties-common &&\
+  add-apt-repository -y ppa:timn/clips &&\
+	apt-get -y install build-essential git g++ vim asciidoc doxygen \
+    libmagic-dev libssl-dev libavahi-client-dev libsqlite3-dev libxml++2.6-dev \
+    libdaemon-dev liblua5.1-0-dev libtolua++5.1-dev \
+    libboost-dev libdc1394-22-dev libbluetooth-dev libbullet-dev libelf-dev \
+    libjpeg-dev libtiff5-dev libjpeg8-dev libjpeg-turbo8-dev libpng-dev libpcl-dev \
+    libopencv-dev libopencv-objdetect-dev libopencv-highgui-dev libopencv-calib3d-dev \
+    libopencv-features2d-dev libopencv-contrib-dev \
+    librrd-dev graphviz libgraphviz-dev \
+    festival-dev festival flite1-dev libasound2-dev \
+    libcgal-dev libctemplate-dev libudev-dev \
+    libgl1-mesa-dev freeglut3-dev libsdl1.2-dev \
+    libgtkmm-3.0-dev libcairomm-1.0-dev libgconfmm-2.6-dev \
+    libclipsmm-dev libprotobuf-dev libprotoc-dev protobuf-compiler \
+    mongodb-dev mongodb-server libncurses5-dev \
+		libmicrohttpd-dev libyaml-cpp-dev libxmlrpc-c++8-dev rapidjson-dev \
+    gazebo9 gazebo9-plugin-base libgazebo9-dev \
+    ccache &&\
+  echo "deb http://archive.ubuntu.com/ubuntu/ bionic-proposed restricted main multiverse universe" >> /etc/apt/sources.list &&\
+  apt-get -y update &&\
+  apt-get -y install 'libpcl*1.8'
+
+# These UID/GID must match the buildkite-agent UID/GID
+# This is typically created from our buildkite ansible role.
+RUN \
+  groupadd -g 1102 builder &&\
+  useradd -u 1102 -c "Builder" -d /opt/fawkes -g builder builder
+
+RUN mkdir -p /var/cache/ccache && chown builder:builder /var/cache/ccache
+COPY ubuntu-profile-ccache.sh /etc/profile.d/ccache.sh
+
+USER builder
+
