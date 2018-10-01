@@ -19,6 +19,9 @@ RUN \
   dnf -y install ccache &&\
   dnf clean all
 
+RUN \
+	pip3 --no-cache-dir install gitlint
+
 # These UID/GID must match the buildkite-agent UID/GID
 # This is typically created from our buildkite ansible role.
 RUN \
