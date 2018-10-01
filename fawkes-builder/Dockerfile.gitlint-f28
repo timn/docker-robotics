@@ -1,0 +1,18 @@
+FROM fedora:28
+
+RUN \
+  dnf -y update --nodocs &&\
+	dnf -y install --nodocs git &&\
+  dnf clean all
+
+RUN \
+	pip3 --no-cache-dir install gitlint
+
+# These UID/GID must match the buildkite-agent UID/GID
+# This is typically created from our buildkite ansible role.
+RUN \
+  groupadd -g 1102 builder &&\
+  useradd -u 1102 -c "Builder" -d /home/builder -g builder builder
+
+USER builder
+

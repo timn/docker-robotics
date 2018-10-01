@@ -1,0 +1,14 @@
+FROM python:3.6.6-alpine
+
+RUN apk update && apk add --no-cache git shadow
+
+RUN pip --no-cache-dir install gitlint
+
+# These UID/GID must match the buildkite-agent UID/GID
+# This is typically created from our buildkite ansible role.
+RUN \
+  groupadd -g 1102 builder &&\
+  useradd -u 1102 -c "Builder" -d /home/builder -g builder builder
+
+USER builder
+
