@@ -52,11 +52,9 @@ RUN dnf install -y \
 	python-netifaces \
 	clips clipsmm-devel clips-emacs \
   openprs-devel plexil-devel plexil-compiler \
+  fast-downward fast-forward \
 	compat-lua compat-lua-devel compat-tolua++-devel \
 	collada-dom-devel python-collada python-empy lz4-devel libuuid-devel \
 	screen \
 	&& dnf clean all
-
-# Currently broken for F28
-#	fast-downward fast-forward
 
