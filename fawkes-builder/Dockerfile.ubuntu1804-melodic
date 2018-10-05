@@ -24,9 +24,6 @@ RUN /bin/bash -c "source $ROS_SETUP_BASH && \
   rm -rf *_isolated; \
   "
 
-# PCL currently is broken on bionic (2018/09/26)
-# cf. https://bugs.launchpad.net/ubuntu/+source/pcl/+bug/1738902
-# Therefore, enable bionic-proposed and upgrade libpcl from there.
 # Note that Debian and Ubuntu based images automatically cleanup
 # afterwards.
 # https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#apt-get
@@ -50,10 +47,7 @@ RUN \
     mongodb-dev mongodb-server libncurses5-dev libwebsocketpp-dev \
 		libmicrohttpd-dev libyaml-cpp-dev libxmlrpc-c++8-dev rapidjson-dev \
     gazebo9 gazebo9-plugin-base libgazebo9-dev \
-    ccache &&\
-  echo "deb http://archive.ubuntu.com/ubuntu/ bionic-proposed restricted main multiverse universe" >> /etc/apt/sources.list &&\
-  apt-get -y update &&\
-  apt-get -y install 'libpcl*1.8'
+    ccache
 
 # These UID/GID must match the buildkite-agent UID/GID
 # This is typically created from our buildkite ansible role.
