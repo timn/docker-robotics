@@ -53,7 +53,7 @@ RUN \
 # This is typically created from our buildkite ansible role.
 RUN \
   groupadd -g 1102 builder &&\
-  useradd -u 1102 -c "Builder" -d /opt/fawkes -g builder builder
+  useradd -u 1102 -c "Builder" -m -d /home/builder -g builder builder
 
 RUN mkdir -p /var/cache/ccache && chown builder:builder /var/cache/ccache
 COPY ubuntu-profile-ccache.sh /etc/profile.d/ccache.sh

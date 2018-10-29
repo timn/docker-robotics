@@ -26,7 +26,7 @@ RUN \
 # This is typically created from our buildkite ansible role.
 RUN \
   groupadd -g 1102 builder &&\
-  useradd -u 1102 -c "Builder" -d /opt/fawkes -g builder -G ccache builder
+  useradd -u 1102 -c "Builder" -m -d /home/builder -g builder -G ccache builder
 
 USER builder
 
