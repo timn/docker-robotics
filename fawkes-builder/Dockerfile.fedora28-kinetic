@@ -16,7 +16,7 @@ RUN /bin/bash -c "source /etc/profile && \
   "
 
 RUN \
-  dnf -y install ccache websocketpp-devel &&\
+  dnf -y install ccache websocketpp-devel npm &&\
   dnf clean all
 
 RUN \
