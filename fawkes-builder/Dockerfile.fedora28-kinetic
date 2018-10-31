@@ -1,4 +1,4 @@
-FROM timn/fedora-ros:f28-kinetic
+FROM fawkesrobotics/fedora-ros:f28-kinetic
 
 # ROS_DISTRO set by fedora-ros layer
 
