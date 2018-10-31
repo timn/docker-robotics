@@ -1,4 +1,4 @@
-FROM       timn/fawkes-buildenv:2017-f27-kinetic
+FROM       fawkesrobotics/fawkes-buildenv:2017-f27-kinetic
 
 ARG  SSH_AUTH_SOCK=/ssh-agent
 ARG  GIT_HEAD=master
