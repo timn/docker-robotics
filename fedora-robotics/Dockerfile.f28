@@ -5,12 +5,17 @@ RUN echo "deltarpm=0" >> /etc/dnf/dnf.conf && \
 	# Update and clean cache afterwards
 	dnf -y update && dnf clean all
 
-# Enable COPR for PDDL planners
+# Enable COPR for PDDL planners, dnf overlay plugin, openprs, plexil
 RUN dnf install -y 'dnf-command(copr)' && \
+	dnf -y copr enable thofmann/dnf-plugin-ovl && \
 	dnf -y copr enable thofmann/planner && \
 	dnf -y copr enable timn/openprs && \
 	dnf -y copr enable thofmann/plexil && \
 	dnf clean all
+
+# Install dnf overlay plugin to avoid rpmdb errors on overlayfs
+RUN dnf install -y dnf-plugin-ovl && dnf clean all
+
 # Install robotics related dependencies, be generous
 # Not in docker: ccache
 RUN dnf install -y \
