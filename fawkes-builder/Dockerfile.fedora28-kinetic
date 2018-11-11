@@ -30,6 +30,10 @@ RUN \
 
 USER builder
 
+# Create npm dir to enable mounting a cache volume without permission
+# errors on the .npm dir itself (would be created owned by root otherwise).
+RUN mkdir -p /home/builder/.npm && chown builder:builder /home/builder/.npm
+
 #RUN mkdir -p /opt/fawkes-builder
 #COPY entrypoint /opt/fawkes-builder/entrypoint
 
