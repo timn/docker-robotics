@@ -10,6 +10,7 @@ RUN dnf install -y 'dnf-command(copr)' && \
 	dnf -y copr enable thofmann/dnf-plugin-ovl && \
 	dnf -y copr enable thofmann/planner && \
 	dnf -y copr enable timn/openprs && \
+	dnf -y copr enable timn/clingo && \
 	dnf -y copr enable thofmann/plexil && \
 	dnf clean all
 
@@ -56,7 +57,7 @@ RUN dnf install -y \
   sip-devel PyQt4-devel \
 	python-netifaces \
 	clips clipsmm-devel clips-emacs \
-  openprs-devel plexil-devel plexil-compiler \
+  openprs-devel plexil-devel plexil-compiler clingo-devel \
   fast-downward fast-forward \
 	compat-lua compat-lua-devel compat-tolua++-devel \
 	collada-dom-devel python-collada python-empy lz4-devel libuuid-devel \
