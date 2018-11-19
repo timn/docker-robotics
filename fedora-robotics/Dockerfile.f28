@@ -1,21 +1,20 @@
 FROM       fedora:28
 
+# Install dnf overlay plugin to avoid rpmdb errors on overlayfs
+RUN dnf install -y dnf-plugin-ovl && dnf clean all
+
 # Disable Delta RPM, since docs are stripped doesn't work
 RUN echo "deltarpm=0" >> /etc/dnf/dnf.conf && \
 	# Update and clean cache afterwards
 	dnf -y update && dnf clean all
 
-# Enable COPR for PDDL planners, dnf overlay plugin, openprs, plexil
+# Enable COPR for PDDL planners, openprs, plexil
 RUN dnf install -y 'dnf-command(copr)' && \
-	dnf -y copr enable thofmann/dnf-plugin-ovl && \
 	dnf -y copr enable thofmann/planner && \
 	dnf -y copr enable timn/openprs && \
 	dnf -y copr enable timn/clingo && \
 	dnf -y copr enable thofmann/plexil && \
 	dnf clean all
-
-# Install dnf overlay plugin to avoid rpmdb errors on overlayfs
-RUN dnf install -y dnf-plugin-ovl && dnf clean all
 
 # Install robotics related dependencies, be generous
 # Not in docker: ccache
