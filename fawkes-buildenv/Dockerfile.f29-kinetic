@@ -1,0 +1,22 @@
+FROM fawkesrobotics/fedora-ros:f29-kinetic
+
+# ROS_DISTRO set by fedora-ros layer
+
+COPY fawkes-pre.rosinstall /opt/ros/
+
+# Get and compile ROS pre bits
+RUN /bin/bash -c "source /etc/profile && \
+  mkdir -p /opt/ros/catkin_ws_${ROS_DISTRO}_fawkes_pre/src; \
+  cd /opt/ros/catkin_ws_${ROS_DISTRO}_fawkes_pre; \
+  wstool init -j $(nproc) src ../fawkes-pre.rosinstall; \
+  rosdep install --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y; \
+  catkin_make_isolated --install --install-space /opt/ros/$ROS_DISTRO \
+    -DCMAKE_BUILD_TYPE=$ROS_BUILD_TYPE || exit $?; \
+  rm -rf *_isolated; \
+  "
+
+RUN mkdir -p /opt/fawkes-buildenv /opt/fawkes-buildenv/patches.d /opt/fawkes-runenv
+COPY scripts.build.d/* /opt/fawkes-buildenv/
+COPY scripts.run.d/* /opt/fawkes-runenv/
+COPY patches.d/* /opt/fawkes-buildenv/patches.d/
+
