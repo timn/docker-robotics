@@ -1,0 +1,28 @@
+FROM fawkesrobotics/fedora-robotics:f29
+
+ENV ROS_DISTRO=kinetic \
+    SHELL=/bin/bash \
+		ROS_BUILD_TYPE=Release \
+		ROSCONSOLE_STDOUT_LINE_BUFFERED=1 \
+		ROSCONSOLE_FORMAT='[${severity}] [${time}] ${node}: ${message}' \
+    ROS_SETUP_BASH=/usr/lib64/ros/setup.bash \
+    ROS_SETUP_SH=/usr/lib64/ros/setup.sh
+
+RUN \
+  dnf -y copr enable thofmann/ros &&\
+  dnf -y install --nodocs \
+    ros-$ROS_DISTRO-desktop_full ros-$ROS_DISTRO-desktop_full-devel \
+    ros-$ROS_DISTRO-move_base_msgs \
+    ros-$ROS_DISTRO-tf2_bullet &&\
+  dnf clean all
+
+RUN \
+  source /etc/profile &&\
+	rosdep init &&\
+	rosdep update
+
+COPY profile-ros.sh /etc/profile.d/ros.sh
+COPY screenrc /root/.screenrc
+RUN mkdir -p /opt/ros
+COPY run-env /opt/ros
+
