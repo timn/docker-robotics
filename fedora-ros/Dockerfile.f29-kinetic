@@ -12,8 +12,8 @@ RUN \
   dnf -y copr enable thofmann/ros &&\
   dnf -y install --nodocs \
     ros-$ROS_DISTRO-desktop_full ros-$ROS_DISTRO-desktop_full-devel \
-    ros-$ROS_DISTRO-move_base_msgs \
-    ros-$ROS_DISTRO-tf2_bullet &&\
+    ros-$ROS_DISTRO-move_base_msgs ros-$ROS_DISTRO-move_base_msgs-devel \
+    ros-$ROS_DISTRO-tf2_bullet ros-$ROS_DISTRO-tf2_bullet-devel &&\
   dnf clean all
 
 RUN \
