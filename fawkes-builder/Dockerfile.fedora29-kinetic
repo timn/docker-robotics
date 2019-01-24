@@ -16,7 +16,7 @@ RUN /bin/bash -c "source /etc/profile && \
   "
 
 RUN \
-  dnf -y --nodocs install ccache &&\
+  dnf -y --nodocs install ccache yamllint &&\
   dnf clean all
 
 RUN \
