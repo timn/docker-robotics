@@ -16,7 +16,7 @@ RUN /bin/bash -c "source /etc/profile && \
   "
 
 RUN \
-  dnf -y --nodocs install ccache yamllint &&\
+  dnf -y --nodocs install ccache yamllint parallel clang procps-ng &&\
   dnf clean all
 
 RUN \
