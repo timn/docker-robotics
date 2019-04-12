@@ -11,6 +11,7 @@ RUN echo "deltarpm=0" >> /etc/dnf/dnf.conf && \
 # Enable COPR for PDDL planners, openprs, plexil
 RUN dnf install -y --nodocs 'dnf-command(copr)' && \
 	dnf -y copr enable thofmann/planner && \
+	dnf -y copr enable thofmann/mongocxx-v3 && \
 	dnf -y copr enable timn/openprs && \
 	dnf -y copr enable timn/clingo && \
 	dnf -y copr enable thofmann/plexil && \
